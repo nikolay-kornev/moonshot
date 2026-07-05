@@ -224,101 +224,99 @@ Then report the PR url and number. Set pushed=true only if BOTH the push and PR 
 }
 
 // ---------- orchestration ----------
-await (async () => {
-  phase('Classify');
-  const cls = await agent(classifyPrompt(), { label: 'classify', phase: 'Classify', schema: CLASSIFY_SCHEMA });
-  if (!cls) throw new Error('classification failed');
-  log(`Classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning}`);
+phase('Classify');
+const cls = await agent(classifyPrompt(), { label: 'classify', phase: 'Classify', schema: CLASSIFY_SCHEMA });
+if (!cls) throw new Error('classification failed');
+log(`Classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning}`);
 
-  // INQUIRY: read-only answer, no implement/validate loop.
-  if (cls.taskType === 'INQUIRY') {
-    phase('Implement');
-    const answer = await agent(
-      `${RULES}\n\nAnswer this read-only question. Investigate the code as needed; do NOT modify files.\n\n${TASK}`,
-      { label: 'inquiry', phase: 'Implement' },
+// INQUIRY: read-only answer, no implement/validate loop.
+if (cls.taskType === 'INQUIRY') {
+  phase('Implement');
+  const answer = await agent(
+    `${RULES}\n\nAnswer this read-only question. Investigate the code as needed; do NOT modify files.\n\n${TASK}`,
+    { label: 'inquiry', phase: 'Implement' },
+  );
+  return { mode: 'inquiry', classification: cls, answer };
+}
+
+const plan = route(cls.complexity, cls.taskType);
+log(`Route: plan=${plan.plan} validators=[${plan.validators}] maxIter=${plan.maxIterations} debug=${plan.debug}`);
+
+let planText = null;
+if (plan.plan) {
+  phase('Plan');
+  const p = await agent(planPrompt(plan.debug), {
+    label: plan.debug ? 'investigate' : 'plan', phase: 'Plan', schema: PLAN_SCHEMA,
+  });
+  if (p) {
+    planText = `${p.plan}\n\nAcceptance criteria:\n${(p.acceptanceCriteria || [])
+      .map((c) => `- [${c.priority}] ${c.id}: ${c.criterion} (verify: ${c.verification})`)
+      .join('\n')}`;
+  }
+}
+
+let rejections = [];
+let approved = false;
+let lastSummary = null;
+let iterationsUsed = 0;
+
+for (let i = 1; i <= plan.maxIterations; i++) {
+  iterationsUsed = i;
+  phase('Implement');
+  const work = await agent(workPrompt(planText, rejections, plan.debug), {
+    label: `implement#${i}`, phase: 'Implement', schema: WORK_SCHEMA,
+  });
+  if (!work) throw new Error(`implementer died on iteration ${i}`);
+  lastSummary = work.summary;
+
+  // Trivial path: no validators configured → accept the single worker pass.
+  if (plan.validators.length === 0) { approved = true; break; }
+
+  // Worker self-reported it cannot be validated yet → loop with its blockers as findings.
+  if (work.canValidate === false) {
+    rejections = (work.blockers || []).map((b) => ({ validator: 'self', severity: 'MUST', message: b }));
+    log(`iter ${i}: worker blocked — ${rejections.map((r) => r.message).join('; ')}`);
+    continue;
+  }
+
+  phase('Validate');
+  const results = await parallel(
+    plan.validators.map((role) => () =>
+      agent(validatePrompt(role, planText), { label: `validate:${role}#${i}`, phase: 'Validate', schema: VALIDATE_SCHEMA })
+        .then((v) => (v ? { validator: role, ...v } : null)),
+    ),
+  );
+  const verdict = evaluate(results);
+  if (verdict.approved) { approved = true; log(`iter ${i}: all ${plan.validators.length} validators approved`); break; }
+  rejections = verdict.rejections;
+  log(`iter ${i}: rejected — ${rejections.length} findings`);
+}
+
+const result = {
+  classification: cls,
+  route: plan,
+  approved,
+  iterationsUsed,
+  summary: lastSummary,
+  rejections: approved ? [] : rejections,
+};
+
+if (!approved) { log(`NOT approved within ${plan.maxIterations} iterations`); return result; }
+
+if (WANT_PR) {
+  phase('Ship');
+  const push = await agent(pushPrompt(), { label: 'git-pusher', phase: 'Ship', schema: PUSH_SCHEMA });
+  if (push && push.pushed && push.prNumber) {
+    // Anti-hallucination: confirm the PR actually exists.
+    const prVerification = await agent(
+      `${RULES}\n\nRun: gh pr view ${push.prNumber} --json number,url,state\nReport whether the PR exists and its state. Do NOT create anything.`,
+      { label: 'verify-pr', phase: 'Ship' },
     );
-    return { mode: 'inquiry', classification: cls, answer };
+    result.push = push;
+    result.prVerification = prVerification;
+  } else {
+    result.push = push || { pushed: false, blocked: true, blockedReason: 'pusher returned no result' };
   }
+}
 
-  const plan = route(cls.complexity, cls.taskType);
-  log(`Route: plan=${plan.plan} validators=[${plan.validators}] maxIter=${plan.maxIterations} debug=${plan.debug}`);
-
-  let planText = null;
-  if (plan.plan) {
-    phase('Plan');
-    const p = await agent(planPrompt(plan.debug), {
-      label: plan.debug ? 'investigate' : 'plan', phase: 'Plan', schema: PLAN_SCHEMA,
-    });
-    if (p) {
-      planText = `${p.plan}\n\nAcceptance criteria:\n${(p.acceptanceCriteria || [])
-        .map((c) => `- [${c.priority}] ${c.id}: ${c.criterion} (verify: ${c.verification})`)
-        .join('\n')}`;
-    }
-  }
-
-  let rejections = [];
-  let approved = false;
-  let lastSummary = null;
-  let iterationsUsed = 0;
-
-  for (let i = 1; i <= plan.maxIterations; i++) {
-    iterationsUsed = i;
-    phase('Implement');
-    const work = await agent(workPrompt(planText, rejections, plan.debug), {
-      label: `implement#${i}`, phase: 'Implement', schema: WORK_SCHEMA,
-    });
-    if (!work) throw new Error(`implementer died on iteration ${i}`);
-    lastSummary = work.summary;
-
-    // Trivial path: no validators configured → accept the single worker pass.
-    if (plan.validators.length === 0) { approved = true; break; }
-
-    // Worker self-reported it cannot be validated yet → loop with its blockers as findings.
-    if (work.canValidate === false) {
-      rejections = (work.blockers || []).map((b) => ({ validator: 'self', severity: 'MUST', message: b }));
-      log(`iter ${i}: worker blocked — ${rejections.map((r) => r.message).join('; ')}`);
-      continue;
-    }
-
-    phase('Validate');
-    const results = await parallel(
-      plan.validators.map((role) => () =>
-        agent(validatePrompt(role, planText), { label: `validate:${role}#${i}`, phase: 'Validate', schema: VALIDATE_SCHEMA })
-          .then((v) => (v ? { validator: role, ...v } : null)),
-      ),
-    );
-    const verdict = evaluate(results);
-    if (verdict.approved) { approved = true; log(`iter ${i}: all ${plan.validators.length} validators approved`); break; }
-    rejections = verdict.rejections;
-    log(`iter ${i}: rejected — ${rejections.length} findings`);
-  }
-
-  const result = {
-    classification: cls,
-    route: plan,
-    approved,
-    iterationsUsed,
-    summary: lastSummary,
-    rejections: approved ? [] : rejections,
-  };
-
-  if (!approved) { log(`NOT approved within ${plan.maxIterations} iterations`); return result; }
-
-  if (WANT_PR) {
-    phase('Ship');
-    const push = await agent(pushPrompt(), { label: 'git-pusher', phase: 'Ship', schema: PUSH_SCHEMA });
-    if (push && push.pushed && push.prNumber) {
-      // Anti-hallucination: confirm the PR actually exists.
-      const prVerification = await agent(
-        `${RULES}\n\nRun: gh pr view ${push.prNumber} --json number,url,state\nReport whether the PR exists and its state. Do NOT create anything.`,
-        { label: 'verify-pr', phase: 'Ship' },
-      );
-      result.push = push;
-      result.prVerification = prVerification;
-    } else {
-      result.push = push || { pushed: false, blocked: true, blockedReason: 'pusher returned no result' };
-    }
-  }
-
-  return result;
-})();
+return result;

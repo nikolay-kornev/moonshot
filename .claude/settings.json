@@ -1,0 +1,13 @@
+{
+  "env": { "ZS_GUARD": "1" },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/zeroshot/hooks/block-dangerous-git.py\"" }
+        ]
+      }
+    ]
+  }
+}

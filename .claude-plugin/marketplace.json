@@ -1,0 +1,11 @@
+{
+  "name": "zeroshot-cc",
+  "description": "Marketplace for the zeroshot autonomous multi-agent workflow plugin.",
+  "plugins": [
+    {
+      "name": "zeroshot",
+      "source": "./zeroshot",
+      "description": "Autonomous plan→implement→validate→iterate→ship multi-agent workflow with blind validators and a git-safety hook."
+    }
+  ]
+}

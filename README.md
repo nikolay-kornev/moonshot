@@ -22,12 +22,15 @@ A classifier subagent picks Complexity (TRIVIAL/SIMPLE/STANDARD/CRITICAL) × Tas
 ## Usage
 
 ```
-/zeroshot <github-issue-number | file-path | inline text> [--pr] [--base <branch>]
+/zeroshot <issue-reference | file-path | inline text> [--pr] [--base <branch>]
 ```
+
+Issue references: a GitHub issue number or URL (`123`, `#123`), a Linear or Jira issue key or URL (`KEY-123`, `linear.app/.../issue/KEY-123`, `<site>.atlassian.net/browse/KEY-123`). GitHub resolves via `gh`; Linear and Jira via their Claude Code connectors (MCP) — connect the one you use. A bare `KEY-123` uses whichever of the two is connected, and asks once if both are. All forms resolve to `"<title>\n\n<description>"` as the task.
 
 Examples:
 
 - `/zeroshot 123` — resolve GitHub issue 123 (`gh issue view 123`) as the task.
+- `/zeroshot NPK-42` — resolve Linear/Jira issue NPK-42 via the connected tracker.
 - `/zeroshot feature.md` — read `feature.md` from disk as the task.
 - `/zeroshot "add input validation to the signup form"` — use the text itself as the task.
 - `/zeroshot 123 --pr --base develop` — same as above, but ship a pull request based on `develop`.

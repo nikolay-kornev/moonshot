@@ -1,6 +1,6 @@
 ---
 name: zeroshot
-description: Autonomously implement a task with a multi-agent plan→implement→validate→iterate→ship loop. Use when the user says "/zeroshot", "run zeroshot", or asks to autonomously implement/fix an issue with independent validation. Accepts a GitHub issue number, a file path, or inline text; supports --pr to open a pull request.
+description: Autonomously implement a task with a multi-agent plan→implement→validate→iterate→ship loop. Use when the user says "/zeroshot", "run zeroshot", or asks to autonomously implement/fix an issue with independent validation. Accepts a GitHub, Linear, or Jira issue reference (number, key, or URL), a file path, or inline text; supports --pr to open a pull request.
 ---
 
 # zeroshot
@@ -21,10 +21,15 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
 
 1. **Parse the argument.** From the user's input extract the task reference and flags (`--pr`, `--base <branch>`).
 
-2. **Resolve the task text:**
-   - Pure integer (e.g. `123`) → run `gh issue view 123 --json title,body` and build `task` as `"<title>\n\n<body>"`. If `gh` fails, tell the user and stop.
+2. **Resolve the task text.** Match the reference against these forms, first match wins; for every tracker build `task` as `"<title>\n\n<description>"`:
+   - GitHub issue URL, `#N`, or pure integer (e.g. `123`) → run `gh issue view <N> --json title,body`.
+   - Linear issue URL (`linear.app/<workspace>/issue/KEY-123...`) → fetch the issue via the connected Linear MCP tools (get issue by identifier).
+   - Jira issue URL (`<site>.atlassian.net/browse/KEY-123`) → fetch via the connected Atlassian MCP tools (`getJiraIssue`).
+   - Bare issue key (`KEY-123`, i.e. `[A-Z][A-Z0-9]+-\d+`) → Linear and Jira share this format. Check which connector is available (search for Linear/Atlassian tools): exactly one connected → use it; both connected → ask the user once which tracker the key belongs to; neither → tell the user to connect the Linear or Atlassian connector and stop. Never silently treat an unresolvable issue key as inline task text.
    - A path that exists (e.g. `feature.md`) → read the file; `task` is its contents.
    - Anything else → treat the raw text as `task`.
+
+   If any lookup fails (not found, no permission, connector absent), tell the user and stop. (The workflow's subagents never ask questions; this pre-flight step in the main session may ask the one disambiguation question above.)
 
 3. **Decide workdir + PR mode:**
    - Default (no `--pr`): `workdir` = the absolute path of the current repo root (`git rev-parse --show-toplevel`), `pr` = false. Agents edit files in place; the user reviews.

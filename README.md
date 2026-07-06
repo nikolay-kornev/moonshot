@@ -8,16 +8,17 @@ A classifier subagent picks Complexity (TRIVIAL/SIMPLE/STANDARD/CRITICAL) × Tas
 
 ## Install
 
-**As a plugin (recommended):**
+**From a local clone:**
 
 ```
-/plugin marketplace add <owner>/moonshot-cc
+git clone <this-repo> moonshot-cc
+/plugin marketplace add /path/to/moonshot-cc
 /plugin install moonshot@moonshot-cc
 ```
 
-(`<owner>` is a literal placeholder — this repo has no remote yet.)
+**From GitHub** (once the repo has a remote): `/plugin marketplace add <owner>/moonshot-cc`, then install as above.
 
-**In-repo:** clone the repo, start `claude` inside it, and trust it when prompted.
+Note: cloning and trusting the repo is NOT enough by itself — the skill lives in the plugin, not in `.claude/skills/`, so it only appears after `/plugin install`. The repo's own `.claude/settings.json` arms only the dev git-safety hook.
 
 ## Usage
 
@@ -36,6 +37,8 @@ Examples:
 - `/moonshot 123 --pr --base develop` — same as above, but ship a pull request based on `develop`.
 
 `--pr` requires `gh` and `git`, and runs in an isolated worktree at `../moonshot-<slug>` (branch `moonshot/<slug>`) so the agents can commit safely without touching your working tree.
+
+> **Trust warning:** the resolved issue text is interpolated verbatim into the prompts of autonomous, non-interactive agents with shell access. Only run against issues from sources you trust, and prefer `--pr` (isolated worktree) for anything third-party.
 
 ## Git-safety guard
 

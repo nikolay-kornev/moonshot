@@ -11,7 +11,10 @@ export const meta = {
 };
 
 // args: { task, workdir, pr, base } — some callers deliver args as a JSON-encoded string
-const ARGS = typeof args === 'string' ? JSON.parse(args) : args;
+let ARGS = args;
+if (typeof args === 'string') {
+  try { ARGS = JSON.parse(args); } catch (e) { throw new Error('moonshot: args must be an object or a JSON-encoded string'); }
+}
 const TASK = ARGS?.task;
 const WORKDIR = ARGS?.workdir || '.';
 const WANT_PR = !!ARGS?.pr;

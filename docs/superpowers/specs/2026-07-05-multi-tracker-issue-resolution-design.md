@@ -1,5 +1,7 @@
 # Multi-tracker issue resolution for /zeroshot
 
+> Historical note: written before the zeroshot → moonshot rename; command and path names below are pre-rename.
+
 **Date:** 2026-07-05
 **Status:** approved
 

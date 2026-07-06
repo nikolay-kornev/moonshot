@@ -28,6 +28,15 @@ test('blocks git stash', () => {
   assert.match(run('git stash'), /deny/);
 });
 
+test('blocks destructive checkout', () => {
+  assert.match(run('git checkout -- .'), /deny/);
+  assert.match(run('git checkout -f'), /deny/);
+});
+
+test('blocks force branch delete (-D)', () => {
+  assert.match(run('git branch -D feature'), /deny/);
+});
+
 test('allows a normal commit', () => {
   assert.equal(run('git commit -m "add feature"'), '');
 });

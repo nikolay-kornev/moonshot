@@ -10,11 +10,12 @@ export const meta = {
   ],
 };
 
-// args: { task, workdir, pr, base }
-const TASK = args?.task;
-const WORKDIR = args?.workdir || '.';
-const WANT_PR = !!args?.pr;
-const BASE = args?.base || 'main';
+// args: { task, workdir, pr, base } — some callers deliver args as a JSON-encoded string
+const ARGS = typeof args === 'string' ? JSON.parse(args) : args;
+const TASK = ARGS?.task;
+const WORKDIR = ARGS?.workdir || '.';
+const WANT_PR = !!ARGS?.pr;
+const BASE = ARGS?.base || 'main';
 if (!TASK) throw new Error('moonshot: args.task is required');
 
 // ---------- schemas ----------
@@ -136,7 +137,7 @@ Your final message MUST be the requested structured output and nothing else.`;
 function classifyPrompt() {
   return `${RULES}
 
-Classify the task on two axes. Bias AWAY from higher complexity — most real tasks are SIMPLE or STANDARD. Reserve CRITICAL for auth, payments, security, data integrity, or irreversible operations.
+Classify the task on two axes. You are a CLASSIFIER only: read-only — do NOT modify, create, or implement anything; a later agent does the work. Bias AWAY from higher complexity — most real tasks are SIMPLE or STANDARD. Reserve CRITICAL for auth, payments, security, data integrity, or irreversible operations.
 
 COMPLEXITY:
 - TRIVIAL: one file, mechanical (typo, rename, constant).

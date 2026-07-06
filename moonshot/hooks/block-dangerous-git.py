@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse(Bash) guard: block catastrophic, rarely-legitimate git commands.
-Active only when ZS_GUARD=1 so it is inert in unrelated sessions.
+Active only when MOONSHOT_GUARD=1 so it is inert in unrelated sessions.
 Ported/trimmed from zeroshot cluster-hooks/block-dangerous-git.py."""
 import json
 import os
@@ -18,7 +18,7 @@ DANGEROUS = [
 
 
 def main():
-    if os.environ.get("ZS_GUARD") != "1":
+    if os.environ.get("MOONSHOT_GUARD") != "1":
         sys.exit(0)
     try:
         payload = json.load(sys.stdin)

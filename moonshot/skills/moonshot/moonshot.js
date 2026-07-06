@@ -1,5 +1,5 @@
 export const meta = {
-  name: 'zeroshot',
+  name: 'moonshot',
   description: 'Autonomous plan → implement → validate → iterate → ship multi-agent workflow',
   phases: [
     { title: 'Classify' },
@@ -15,7 +15,7 @@ const TASK = args?.task;
 const WORKDIR = args?.workdir || '.';
 const WANT_PR = !!args?.pr;
 const BASE = args?.base || 'main';
-if (!TASK) throw new Error('zeroshot: args.task is required');
+if (!TASK) throw new Error('moonshot: args.task is required');
 
 // ---------- schemas ----------
 const CLASSIFY_SCHEMA = {

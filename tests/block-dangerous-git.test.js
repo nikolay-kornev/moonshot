@@ -3,9 +3,9 @@ const assert = require('node:assert');
 const { spawnSync } = require('node:child_process');
 
 function run(command, guard = '1') {
-  const res = spawnSync('python3', ['zeroshot/hooks/block-dangerous-git.py'], {
+  const res = spawnSync('python3', ['moonshot/hooks/block-dangerous-git.py'], {
     input: JSON.stringify({ tool_name: 'Bash', tool_input: { command } }),
-    env: { ...process.env, ZS_GUARD: guard },
+    env: { ...process.env, MOONSHOT_GUARD: guard },
     encoding: 'utf8',
   });
   return res.stdout.trim();
@@ -40,6 +40,6 @@ test('allows non-git bash', () => {
   assert.equal(run('rm -rf node_modules'), '');
 });
 
-test('inert when ZS_GUARD is not 1', () => {
+test('inert when MOONSHOT_GUARD is not 1', () => {
   assert.equal(run('git reset --hard', '0'), '');
 });

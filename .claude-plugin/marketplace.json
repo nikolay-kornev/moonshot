@@ -1,10 +1,10 @@
 {
-  "name": "zeroshot-cc",
-  "description": "Marketplace for the zeroshot autonomous multi-agent workflow plugin.",
+  "name": "moonshot-cc",
+  "description": "Marketplace for the moonshot autonomous multi-agent workflow plugin.",
   "plugins": [
     {
-      "name": "zeroshot",
-      "source": "./zeroshot",
+      "name": "moonshot",
+      "source": "./moonshot",
       "description": "Autonomous plan→implement→validate→iterate→ship multi-agent workflow with blind validators and a git-safety hook."
     }
   ]

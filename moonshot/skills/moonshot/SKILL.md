@@ -1,15 +1,15 @@
 ---
-name: zeroshot
-description: Autonomously implement a task with a multi-agent plan→implement→validate→iterate→ship loop. Use when the user says "/zeroshot", "run zeroshot", or asks to autonomously implement/fix an issue with independent validation. Accepts a GitHub, Linear, or Jira issue reference (number, key, or URL), a file path, or inline text; supports --pr to open a pull request.
+name: moonshot
+description: Autonomously implement a task with a multi-agent plan→implement→validate→iterate→ship loop. Use when the user says "/moonshot", "run moonshot", or asks to autonomously implement/fix an issue with independent validation. Accepts a GitHub, Linear, or Jira issue reference (number, key, or URL), a file path, or inline text; supports --pr to open a pull request.
 ---
 
-# zeroshot
+# moonshot
 
 Drive an autonomous multi-agent workflow: classify the task, optionally plan it, implement it, validate it with independent blind validators, loop on rejection, and (with `--pr`) ship a pull request.
 
 ## When to use
 
-- The user explicitly runs `/zeroshot ...`, or asks to autonomously implement/fix something with independent verification.
+- The user explicitly runs `/moonshot ...`, or asks to autonomously implement/fix something with independent verification.
 - The task has describable "done" criteria. If it is exploratory ("make it faster", "improve the code"), say so and ask for concrete acceptance criteria first — this workflow needs a verifiable target.
 
 ## Never do
@@ -36,13 +36,13 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
    - `--pr`: create an isolated worktree so agents can commit safely:
      - `base` = the `--base` value or `main`.
      - slug = a short kebab-case name from the task.
-     - `git worktree add ../zeroshot-<slug> -b zeroshot/<slug> <base>`
+     - `git worktree add ../moonshot-<slug> -b moonshot/<slug> <base>`
      - `workdir` = the absolute path of that new worktree; `pr` = true.
 
-4. **Run the workflow.** The workflow script `zeroshot.js` lives in this skill's base
+4. **Run the workflow.** The workflow script `moonshot.js` lives in this skill's base
    directory (Claude Code announces "Base directory for this skill: <path>" when the skill
    loads). Call the Workflow tool with its absolute path:
-   `Workflow({ scriptPath: "<skill-base-dir>/zeroshot.js", args: { task, workdir, pr, base } })`
+   `Workflow({ scriptPath: "<skill-base-dir>/moonshot.js", args: { task, workdir, pr, base } })`
    This is an explicit, user-requested multi-agent orchestration — the correct use of Workflow.
 
 5. **Report the result** returned by the workflow, in this order:
@@ -51,10 +51,10 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
    - If not approved: the outstanding rejections (validator, severity, message) so the user can decide next steps.
    - The implementation summary.
    - If `--pr`: the PR url/number and the verification result. If the push was blocked, surface `blockedReason`.
-   - In `--pr` mode, remind the user the work is in the worktree `../zeroshot-<slug>` on branch `zeroshot/<slug>`.
+   - In `--pr` mode, remind the user the work is in the worktree `../moonshot-<slug>` on branch `moonshot/<slug>`.
 
 ## Notes
 
 - Blind validation is automatic: each validator is a fresh subagent that never sees the implementer's reasoning — only the task, the plan/criteria, and the actual code on disk.
 - To resume after an interruption, re-run with the same `scriptPath` and pass the prior run's id via the Workflow `resumeFromRunId` option (session-scoped).
-- The git-safety hook (`ZS_GUARD`) blocks catastrophic git commands during the run.
+- The git-safety hook (`MOONSHOT_GUARD`) blocks catastrophic git commands during the run.

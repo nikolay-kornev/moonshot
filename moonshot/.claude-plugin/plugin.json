@@ -1,5 +1,5 @@
 {
-  "name": "zeroshot",
+  "name": "moonshot",
   "version": "0.1.0",
   "description": "Autonomous multi-agent implement→validate→iterate→ship workflow for Claude Code (skill + workflow + git-safety hook)."
 }

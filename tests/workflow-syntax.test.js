@@ -8,7 +8,7 @@ const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 
 const SRC = readFileSync(
-  join(__dirname, '..', 'zeroshot', 'skills', 'zeroshot', 'zeroshot.js'),
+  join(__dirname, '..', 'moonshot', 'skills', 'moonshot', 'moonshot.js'),
   'utf8',
 );
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;

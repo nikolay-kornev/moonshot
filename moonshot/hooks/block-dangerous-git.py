@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """PreToolUse(Bash) guard: block catastrophic, rarely-legitimate git commands.
 Active only when MOONSHOT_GUARD=1 so it is inert in unrelated sessions.
-Ported/trimmed from zeroshot cluster-hooks/block-dangerous-git.py."""
+Ported/trimmed from zeroshot cluster-hooks/block-dangerous-git.py
+(https://github.com/the-open-engine/zeroshot), MIT License,
+Copyright (c) 2026 The Open Engine Company."""
 import json
 import os
 import re

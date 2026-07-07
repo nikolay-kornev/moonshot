@@ -1,6 +1,6 @@
 # moonshot
 
-moonshot reproduces the zeroshot harness's autonomous multi-agent implement→validate→iterate→ship loop using only Claude Code primitives (skill + Workflow script + subagents + one hook). No Docker, no daemon, no external dependencies.
+moonshot reproduces the [zeroshot](https://github.com/the-open-engine/zeroshot) harness's autonomous multi-agent implement→validate→iterate→ship loop using only Claude Code primitives (skill + Workflow script + subagents + one hook). No Docker, no daemon, no external dependencies.
 
 ## How it works
 
@@ -55,6 +55,10 @@ A PreToolUse hook blocks catastrophic git commands before they run: `reset --har
 ## Development
 
 `lib/` and `tests/` are TypeScript, run directly via Node's native type stripping: `npm test` (Node 23.6+, built-in test runner, no build step). `npm run typecheck` runs `tsc --noEmit` (`typescript` and `@types/node` are the only devDependencies; runtime has none). `lib/` holds the canonical routing/consensus logic, deliberately mirrored inline in `moonshot/skills/moonshot/moonshot.js` — that file must stay plain JavaScript, because the Workflow runtime does not strip types; it is typechecked anyway via `// @ts-check` + JSDoc against `workflow-globals.d.ts` (ambient declarations of the Workflow dialect's injected globals). Python 3 is needed for the hook and its tests.
+
+## Credits
+
+moonshot is an independent reimplementation of [zeroshot](https://github.com/the-open-engine/zeroshot) by The Open Engine Company (MIT License, Copyright (c) 2026 The Open Engine Company) — its classify→plan→implement→validate→iterate→ship design and prompt discipline are the direct inspiration for this project. The git-safety hook (`moonshot/hooks/block-dangerous-git.py`) is ported from zeroshot's `cluster-hooks/block-dangerous-git.py`. moonshot ports these ideas to Claude Code primitives; it is not affiliated with or endorsed by The Open Engine Company.
 
 ## Layout
 

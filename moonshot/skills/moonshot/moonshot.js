@@ -1,3 +1,4 @@
+// @ts-check
 export const meta = {
   name: 'moonshot',
   description: 'Autonomous plan → implement → validate → iterate → ship multi-agent workflow',
@@ -20,6 +21,10 @@ const WORKDIR = ARGS?.workdir || '.';
 const WANT_PR = !!ARGS?.pr;
 const BASE = ARGS?.base || 'main';
 if (!TASK) throw new Error('moonshot: args.task is required');
+
+/** @typedef {{severity: string, message: string, evidence?: string}} ValidatorError */
+/** @typedef {{validator: string, approved: boolean, errors?: ValidatorError[]}} ValidatorResult */
+/** @typedef {ValidatorError & {validator: string}} Finding */
 
 // ---------- schemas ----------
 const CLASSIFY_SCHEMA = {
@@ -107,7 +112,11 @@ const PUSH_SCHEMA = {
   },
 };
 
-// ---------- routing (ponytail: mirror of lib/routing.js — keep in sync) ----------
+// ---------- routing (ponytail: mirror of lib/routing.ts — keep in sync) ----------
+/**
+ * @param {string} complexity
+ * @param {string} taskType
+ */
 function route(complexity, taskType) {
   if (taskType === 'DEBUG' && complexity !== 'TRIVIAL') {
     return { plan: true, debug: true, validators: ['tester'], maxIterations: 10 };
@@ -121,9 +130,10 @@ function route(complexity, taskType) {
   }
 }
 
-// ---------- consensus (ponytail: mirror of lib/consensus.js — keep in sync) ----------
+// ---------- consensus (ponytail: mirror of lib/consensus.ts — keep in sync) ----------
+/** @param {Array<ValidatorResult | null>} results */
 function evaluate(results) {
-  const responded = results.filter(Boolean);
+  const responded = /** @type {ValidatorResult[]} */ (results.filter(Boolean));
   const approved = responded.length > 0 && responded.every((r) => r.approved === true);
   const rejections = responded
     .filter((r) => r.approved !== true)
@@ -157,6 +167,7 @@ TASK:
 ${TASK}`;
 }
 
+/** @param {boolean} debug */
 function planPrompt(debug) {
   return `${RULES}
 
@@ -169,6 +180,11 @@ TASK:
 ${TASK}`;
 }
 
+/**
+ * @param {string | null} planText
+ * @param {Finding[]} rejections
+ * @param {boolean} debug
+ */
 function workPrompt(planText, rejections, debug) {
   const role = debug
     ? `You are the FIXER. Fix the ROOT CAUSE, not the symptom. Fix ALL locations that share the defect. Add a regression test that FAILS against the old code and passes against your fix.`
@@ -189,6 +205,7 @@ ${planBlock}${fixBlock}
 Set canValidate=false ONLY if a hard blocker prevents any validation (report it in blockers). Otherwise implement fully and set canValidate=true.`;
 }
 
+/** @type {Record<string, string>} */
 const VALIDATOR_FOCUS = {
   generic: 'Verify the task is fully and correctly implemented and actually works.',
   requirements: 'Verify EVERY acceptance criterion is met. Any unmet MUST criterion = reject.',
@@ -197,6 +214,10 @@ const VALIDATOR_FOCUS = {
   tester: 'RUN it. Execute the code and/or its tests and capture REAL output. "Tests look correct" is NOT acceptable — behavioral evidence only. Try to break it with edge cases and error paths.',
 };
 
+/**
+ * @param {string} role
+ * @param {string | null} planText
+ */
 function validatePrompt(role, planText) {
   return `${RULES}
 
@@ -240,6 +261,7 @@ if (cls.taskType === 'INQUIRY') {
     `${RULES}\n\nAnswer this read-only question. Investigate the code as needed; do NOT modify files.\n\n${TASK}`,
     { label: 'inquiry', phase: 'Implement' },
   );
+  // @ts-ignore -- Workflow dialect: top-level return (body runs in an async function scope)
   return { mode: 'inquiry', classification: cls, answer };
 }
 
@@ -254,11 +276,13 @@ if (plan.plan) {
   });
   if (p) {
     planText = `${p.plan}\n\nAcceptance criteria:\n${(p.acceptanceCriteria || [])
-      .map((c) => `- [${c.priority}] ${c.id}: ${c.criterion} (verify: ${c.verification})`)
+      .map((/** @type {{id: string, criterion: string, verification: string, priority: string}} */ c) =>
+        `- [${c.priority}] ${c.id}: ${c.criterion} (verify: ${c.verification})`)
       .join('\n')}`;
   }
 }
 
+/** @type {Finding[]} */
 let rejections = [];
 let approved = false;
 let lastSummary = null;
@@ -278,7 +302,7 @@ for (let i = 1; i <= plan.maxIterations; i++) {
 
   // Worker self-reported it cannot be validated yet → loop with its blockers as findings.
   if (work.canValidate === false) {
-    rejections = (work.blockers || []).map((b) => ({ validator: 'self', severity: 'MUST', message: b }));
+    rejections = (work.blockers || []).map((/** @type {string} */ b) => ({ validator: 'self', severity: 'MUST', message: b }));
     log(`iter ${i}: worker blocked — ${rejections.map((r) => r.message).join('; ')}`);
     continue;
   }
@@ -296,6 +320,13 @@ for (let i = 1; i <= plan.maxIterations; i++) {
   log(`iter ${i}: rejected — ${rejections.length} findings`);
 }
 
+/**
+ * @type {{
+ *   classification: any, route: ReturnType<typeof route>, approved: boolean,
+ *   iterationsUsed: number, summary: string | null, rejections: Finding[],
+ *   push?: any, prVerification?: any,
+ * }}
+ */
 const result = {
   classification: cls,
   route: plan,
@@ -305,6 +336,7 @@ const result = {
   rejections: approved ? [] : rejections,
 };
 
+// @ts-ignore -- Workflow dialect: top-level return
 if (!approved) { log(`NOT approved within ${plan.maxIterations} iterations`); return result; }
 
 if (WANT_PR) {
@@ -323,4 +355,5 @@ if (WANT_PR) {
   }
 }
 
+// @ts-ignore -- Workflow dialect: top-level return
 return result;

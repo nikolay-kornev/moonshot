@@ -1,6 +1,6 @@
-# moonshot-cc
+# moonshot
 
-moonshot-cc reproduces the zeroshot harness's autonomous multi-agent implement→validate→iterate→ship loop using only Claude Code primitives (skill + Workflow script + subagents + one hook). No Docker, no daemon, no external dependencies.
+moonshot reproduces the zeroshot harness's autonomous multi-agent implement→validate→iterate→ship loop using only Claude Code primitives (skill + Workflow script + subagents + one hook). No Docker, no daemon, no external dependencies.
 
 ## How it works
 
@@ -11,12 +11,12 @@ A classifier subagent picks Complexity (TRIVIAL/SIMPLE/STANDARD/CRITICAL) × Tas
 **From a local clone:**
 
 ```
-git clone <this-repo> moonshot-cc
-/plugin marketplace add /path/to/moonshot-cc
-/plugin install moonshot@moonshot-cc
+git clone <this-repo> moonshot
+/plugin marketplace add /path/to/moonshot
+/plugin install moonshot@moonshot
 ```
 
-**From GitHub** (once the repo has a remote): `/plugin marketplace add <owner>/moonshot-cc`, then install as above.
+**From GitHub** (once the repo has a remote): `/plugin marketplace add <owner>/moonshot`, then install as above.
 
 Note: cloning and trusting the repo is NOT enough by itself — the skill lives in the plugin, not in `.claude/skills/`, so it only appears after `/plugin install`. The repo's own `.claude/settings.json` arms only the dev git-safety hook.
 
@@ -54,17 +54,17 @@ A PreToolUse hook blocks catastrophic git commands before they run: `reset --har
 
 ## Development
 
-Run `npm test` (Node 18+, built-in test runner, zero dependencies). `lib/` holds the canonical routing/consensus logic, which is deliberately mirrored inline in `moonshot/skills/moonshot/moonshot.js` (Workflow scripts are sandboxed and cannot `require`). Python 3 is needed for the hook and its tests.
+`lib/` and `tests/` are TypeScript, run directly via Node's native type stripping: `npm test` (Node 23.6+, built-in test runner, no build step). `npm run typecheck` runs `tsc --noEmit` (`typescript` and `@types/node` are the only devDependencies; runtime has none). `lib/` holds the canonical routing/consensus logic, deliberately mirrored inline in `moonshot/skills/moonshot/moonshot.js` — that file must stay plain JavaScript, because the Workflow runtime does not strip types; it is typechecked anyway via `// @ts-check` + JSDoc against `workflow-globals.d.ts` (ambient declarations of the Workflow dialect's injected globals). Python 3 is needed for the hook and its tests.
 
 ## Layout
 
 ```
-moonshot-cc/
+moonshot/
 ├── .claude-plugin/marketplace.json   # marketplace manifest (this repo)
 ├── moonshot/                         # the plugin
 │   ├── .claude-plugin/plugin.json    # plugin manifest
 │   ├── skills/moonshot/              # SKILL.md + moonshot.js (Workflow script)
 │   └── hooks/                        # hooks.json + block-dangerous-git.py
-├── lib/                              # canonical routing.js / consensus.js (dev reference)
-└── tests/                            # node --test suite for lib/ and the hook
+├── lib/                              # canonical routing.ts / consensus.ts (dev reference)
+└── tests/                            # node --test suite (TypeScript) for lib/ and the hook
 ```

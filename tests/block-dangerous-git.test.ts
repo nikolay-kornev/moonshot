@@ -1,8 +1,9 @@
-const { test } = require('node:test');
-const assert = require('node:assert');
-const { spawnSync } = require('node:child_process');
+// tests/block-dangerous-git.test.ts
+import { test } from 'node:test';
+import assert from 'node:assert';
+import { spawnSync } from 'node:child_process';
 
-function run(command, guard = '1') {
+function run(command: string, guard = '1'): string {
   const res = spawnSync('python3', ['moonshot/hooks/block-dangerous-git.py'], {
     input: JSON.stringify({ tool_name: 'Bash', tool_input: { command } }),
     env: { ...process.env, MOONSHOT_GUARD: guard },

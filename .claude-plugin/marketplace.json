@@ -1,5 +1,5 @@
 {
-  "name": "moonshot-cc",
+  "name": "moonshot",
   "owner": { "name": "Nick Kornev" },
   "description": "Marketplace for the moonshot autonomous multi-agent workflow plugin.",
   "plugins": [

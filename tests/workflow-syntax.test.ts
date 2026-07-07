@@ -1,14 +1,15 @@
-// tests/workflow-syntax.test.js
+// tests/workflow-syntax.test.ts
 // The workflow script is written in the Claude Code Workflow dialect: the runtime
 // evaluates it inside an async function scope (top-level `await` and `return` are
 // valid), so plain `node --check` cannot parse it. Mirror the runtime instead.
-const { test } = require('node:test');
-const assert = require('node:assert');
-const { readFileSync } = require('node:fs');
-const { join } = require('node:path');
+// It must stay plain JavaScript — the Workflow runtime does not strip types.
+import { test } from 'node:test';
+import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const SRC = readFileSync(
-  join(__dirname, '..', 'moonshot', 'skills', 'moonshot', 'moonshot.js'),
+  join(import.meta.dirname, '..', 'moonshot', 'skills', 'moonshot', 'moonshot.js'),
   'utf8',
 );
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;

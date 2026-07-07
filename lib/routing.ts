@@ -1,11 +1,22 @@
-// lib/routing.js
-// Canonical routing. Mirrored inline in moonshot/skills/moonshot/moonshot.js
-// (Workflow scripts are self-contained and cannot require modules).
+// lib/routing.ts
+// Canonical routing. Mirrored inline (as plain JS) in moonshot/skills/moonshot/moonshot.js
+// (Workflow scripts are self-contained plain JavaScript and cannot import modules).
 
-const COMPLEXITY = ['TRIVIAL', 'SIMPLE', 'STANDARD', 'CRITICAL'];
-const TASK_TYPES = ['INQUIRY', 'TASK', 'DEBUG'];
+export const COMPLEXITY = ['TRIVIAL', 'SIMPLE', 'STANDARD', 'CRITICAL'] as const;
+export const TASK_TYPES = ['INQUIRY', 'TASK', 'DEBUG'] as const;
 
-function route(complexity, taskType) {
+export type Complexity = (typeof COMPLEXITY)[number];
+export type TaskType = (typeof TASK_TYPES)[number];
+
+export interface Route {
+  plan: boolean;
+  debug: boolean;
+  validators: string[];
+  maxIterations: number;
+}
+
+export function route(complexity: Complexity, taskType: TaskType): Route {
+  // Runtime guards stay: values arrive from a classifier agent, not typed callers.
   if (!COMPLEXITY.includes(complexity)) throw new Error(`Unknown complexity: ${complexity}`);
   if (!TASK_TYPES.includes(taskType)) throw new Error(`Unknown taskType: ${taskType}`);
 
@@ -28,5 +39,3 @@ function route(complexity, taskType) {
       };
   }
 }
-
-module.exports = { route, COMPLEXITY, TASK_TYPES };

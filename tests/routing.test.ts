@@ -1,7 +1,7 @@
-// tests/routing.test.js
-const { test } = require('node:test');
-const assert = require('node:assert');
-const { route } = require('../lib/routing');
+// tests/routing.test.ts
+import { test } from 'node:test';
+import assert from 'node:assert';
+import { route } from '../lib/routing.ts';
 
 test('TRIVIAL TASK → 1 worker, no validators, 1 iteration', () => {
   assert.deepEqual(route('TRIVIAL', 'TASK'), {
@@ -40,9 +40,10 @@ test('DEBUG at TRIVIAL falls through to trivial (no debug loop)', () => {
 });
 
 test('unknown complexity throws', () => {
-  assert.throws(() => route('WAT', 'TASK'));
+  // `as any`: deliberately feeding a value the type system forbids — that's the point.
+  assert.throws(() => route('WAT' as any, 'TASK'));
 });
 
 test('unknown taskType throws', () => {
-  assert.throws(() => route('SIMPLE', 'NOPE'));
+  assert.throws(() => route('SIMPLE', 'NOPE' as any));
 });

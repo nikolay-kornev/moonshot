@@ -1,7 +1,7 @@
-// tests/consensus.test.js
-const { test } = require('node:test');
-const assert = require('node:assert');
-const { evaluate } = require('../lib/consensus');
+// tests/consensus.test.ts
+import { test } from 'node:test';
+import assert from 'node:assert';
+import { evaluate } from '../lib/consensus.ts';
 
 test('all approve → approved, no rejections', () => {
   const r = evaluate([

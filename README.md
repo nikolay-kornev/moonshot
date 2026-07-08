@@ -16,7 +16,12 @@ git clone <this-repo> moonshot
 /plugin install moonshot@moonshot
 ```
 
-**From GitHub** (once the repo has a remote): `/plugin marketplace add <owner>/moonshot`, then install as above.
+**From GitHub:**
+
+```
+/plugin marketplace add nikolay-kornev/moonshot
+/plugin install moonshot@moonshot
+```
 
 Note: cloning and trusting the repo is NOT enough by itself — the skill lives in the plugin, not in `.claude/skills/`, so it only appears after `/plugin install`. The repo's own `.claude/settings.json` arms only the dev git-safety hook.
 

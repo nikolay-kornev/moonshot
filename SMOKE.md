@@ -17,10 +17,15 @@ Fixes that came out of smoke testing:
 2. Classifier agent created the target file itself during the TRIVIAL run → classify prompt now
    declares the agent read-only.
 
-# Pending (2026-07-08 formal spec→plan workflow)
+# Smoke results (2026-07-08, formal interactive path, live e2e via Workflow scriptPath)
 
-- Formal interactive path: not yet run — needs a STANDARD task plus a user dialogue
-  (brainstorm → approve spec → approve plan → workflow skips classify+plan agents).
+- Formal interactive path: pre-flight classifier subagent → STANDARD/TASK; brainstorm
+  (2 questions: write mode, duplicate-slug policy) → user-approved spec (7 ACs) + plan
+  written to `docs/moonshot/specs|plans/` by the skill; workflow skipped BOTH classify
+  and plan agents (3 agents total: implement, 2 validators), approved in 1 iteration.
+  Task: Markdown TOC CLI in a scratch repo. Verified independently by controller:
+  `node --test test.js` exit 0 (7 tests), duplicate headings → `#setup`/`#setup-1`,
+  fenced `##` ignored, two re-runs byte-identical (md5). Pass.
 
 # Smoke results (2026-07-08, formal `--auto` path, live e2e via Workflow scriptPath)
 

@@ -11,7 +11,8 @@ export const meta = {
   ],
 };
 
-// args: { task, workdir, pr, base } — some callers deliver args as a JSON-encoded string
+// args: { task, workdir, pr, base, classification?, spec?, plan?, specPath?, planPath?, auto? }
+// — some callers deliver args as a JSON-encoded string
 let ARGS = args;
 if (typeof args === 'string') {
   try { ARGS = JSON.parse(args); } catch (e) { throw new Error('moonshot: args must be an object or a JSON-encoded string'); }
@@ -20,6 +21,11 @@ const TASK = ARGS?.task;
 const WORKDIR = ARGS?.workdir || '.';
 const WANT_PR = !!ARGS?.pr;
 const BASE = ARGS?.base || 'main';
+const AUTO = !!ARGS?.auto;
+const PRE_SPEC = typeof ARGS?.spec === 'string' && ARGS.spec.trim() ? ARGS.spec : null;
+const PRE_PLAN = typeof ARGS?.plan === 'string' && ARGS.plan.trim() ? ARGS.plan : null;
+const SPEC_PATH = typeof ARGS?.specPath === 'string' && ARGS.specPath ? ARGS.specPath : null;
+const PLAN_PATH = typeof ARGS?.planPath === 'string' && ARGS.planPath ? ARGS.planPath : null;
 if (!TASK) throw new Error('moonshot: args.task is required');
 
 /** @typedef {{severity: string, message: string, evidence?: string}} ValidatorError */
@@ -27,12 +33,15 @@ if (!TASK) throw new Error('moonshot: args.task is required');
 /** @typedef {ValidatorError & {validator: string}} Finding */
 
 // ---------- schemas ----------
+const COMPLEXITY = ['TRIVIAL', 'SIMPLE', 'STANDARD', 'CRITICAL'];
+const TASK_TYPES = ['INQUIRY', 'TASK', 'DEBUG'];
+
 const CLASSIFY_SCHEMA = {
   type: 'object',
   required: ['complexity', 'taskType', 'reasoning'],
   properties: {
-    complexity: { enum: ['TRIVIAL', 'SIMPLE', 'STANDARD', 'CRITICAL'] },
-    taskType: { enum: ['INQUIRY', 'TASK', 'DEBUG'] },
+    complexity: { enum: COMPLEXITY },
+    taskType: { enum: TASK_TYPES },
     reasoning: { type: 'string' },
   },
 };
@@ -251,9 +260,18 @@ Then report the PR url and number. Set pushed=true only if BOTH the push and PR 
 
 // ---------- orchestration ----------
 phase('Classify');
-const cls = await agent(classifyPrompt(), { label: 'classify', phase: 'Classify', schema: CLASSIFY_SCHEMA });
+/** @type {{complexity: string, taskType: string, reasoning?: string} | null} */
+let cls = null;
+const pre = ARGS?.classification;
+if (pre && COMPLEXITY.includes(pre.complexity) && TASK_TYPES.includes(pre.taskType)) {
+  cls = /** @type {{complexity: string, taskType: string, reasoning?: string}} */ (pre);
+  log(`Pre-classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning || 'from pre-flight'}`);
+} else {
+  cls = await agent(classifyPrompt(), { label: 'classify', phase: 'Classify', schema: CLASSIFY_SCHEMA });
+  if (!cls) throw new Error('classification failed');
+  log(`Classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning}`);
+}
 if (!cls) throw new Error('classification failed');
-log(`Classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning}`);
 
 // INQUIRY: read-only answer, no implement/validate loop.
 if (cls.taskType === 'INQUIRY') {

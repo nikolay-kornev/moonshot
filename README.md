@@ -20,8 +20,11 @@ git clone <this-repo> moonshot
 
 ```
 /plugin marketplace add nikolay-kornev/moonshot
+/plugin marketplace update moonshot
 /plugin install moonshot@moonshot
 ```
+
+If `install` reports `Marketplace "moonshot" not found` right after `add`, the catalog hasn't loaded yet — the `marketplace update` line above forces the refresh (or just restart Claude Code between the two).
 
 Note: cloning and trusting the repo is NOT enough by itself — the skill lives in the plugin, not in `.claude/skills/`, so it only appears after `/plugin install`. The repo's own `.claude/settings.json` arms only the dev git-safety hook.
 

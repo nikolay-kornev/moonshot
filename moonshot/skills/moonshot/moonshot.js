@@ -11,7 +11,8 @@ export const meta = {
   ],
 };
 
-// args: { task, workdir, pr, base } — some callers deliver args as a JSON-encoded string
+// args: { task, workdir, pr, base, classification?, spec?, plan?, specPath?, planPath?, auto? }
+// — some callers deliver args as a JSON-encoded string
 let ARGS = args;
 if (typeof args === 'string') {
   try { ARGS = JSON.parse(args); } catch (e) { throw new Error('moonshot: args must be an object or a JSON-encoded string'); }
@@ -20,6 +21,11 @@ const TASK = ARGS?.task;
 const WORKDIR = ARGS?.workdir || '.';
 const WANT_PR = !!ARGS?.pr;
 const BASE = ARGS?.base || 'main';
+const AUTO = !!ARGS?.auto;
+const PRE_SPEC = typeof ARGS?.spec === 'string' && ARGS.spec.trim() ? ARGS.spec : null;
+const PRE_PLAN = typeof ARGS?.plan === 'string' && ARGS.plan.trim() ? ARGS.plan : null;
+const SPEC_PATH = typeof ARGS?.specPath === 'string' && ARGS.specPath ? ARGS.specPath : null;
+const PLAN_PATH = typeof ARGS?.planPath === 'string' && ARGS.planPath ? ARGS.planPath : null;
 if (!TASK) throw new Error('moonshot: args.task is required');
 
 /** @typedef {{severity: string, message: string, evidence?: string}} ValidatorError */
@@ -27,13 +33,44 @@ if (!TASK) throw new Error('moonshot: args.task is required');
 /** @typedef {ValidatorError & {validator: string}} Finding */
 
 // ---------- schemas ----------
+const COMPLEXITY = ['TRIVIAL', 'SIMPLE', 'STANDARD', 'CRITICAL'];
+const TASK_TYPES = ['INQUIRY', 'TASK', 'DEBUG'];
+
 const CLASSIFY_SCHEMA = {
   type: 'object',
   required: ['complexity', 'taskType', 'reasoning'],
   properties: {
-    complexity: { enum: ['TRIVIAL', 'SIMPLE', 'STANDARD', 'CRITICAL'] },
-    taskType: { enum: ['INQUIRY', 'TASK', 'DEBUG'] },
+    complexity: { enum: COMPLEXITY },
+    taskType: { enum: TASK_TYPES },
     reasoning: { type: 'string' },
+  },
+};
+
+const CRITERIA = {
+  type: 'array',
+  minItems: 1,
+  items: {
+    type: 'object',
+    required: ['id', 'criterion', 'verification', 'priority'],
+    properties: {
+      id: { type: 'string' },
+      criterion: { type: 'string' },
+      verification: { type: 'string' },
+      priority: { enum: ['MUST', 'SHOULD', 'NICE'] },
+    },
+  },
+};
+
+const SPEC_SCHEMA = {
+  type: 'object',
+  required: ['problem', 'decisions', 'acceptanceCriteria', 'specFileWritten'],
+  properties: {
+    problem: { type: 'string' },
+    goals: { type: 'array', items: { type: 'string' } },
+    nonGoals: { type: 'array', items: { type: 'string' } },
+    decisions: { type: 'string' },
+    acceptanceCriteria: CRITERIA,
+    specFileWritten: { type: 'string' },
   },
 };
 
@@ -43,20 +80,7 @@ const PLAN_SCHEMA = {
   properties: {
     plan: { type: 'string' },
     filesAffected: { type: 'array', items: { type: 'string' } },
-    acceptanceCriteria: {
-      type: 'array',
-      minItems: 1,
-      items: {
-        type: 'object',
-        required: ['id', 'criterion', 'verification', 'priority'],
-        properties: {
-          id: { type: 'string' },
-          criterion: { type: 'string' },
-          verification: { type: 'string' },
-          priority: { enum: ['MUST', 'SHOULD', 'NICE'] },
-        },
-      },
-    },
+    acceptanceCriteria: CRITERIA,
   },
 };
 
@@ -119,14 +143,15 @@ const PUSH_SCHEMA = {
  */
 function route(complexity, taskType) {
   if (taskType === 'DEBUG' && complexity !== 'TRIVIAL') {
-    return { plan: true, debug: true, validators: ['tester'], maxIterations: 10 };
+    return { plan: true, debug: true, formal: false, validators: ['tester'], maxIterations: 10 };
   }
+  const formal = taskType === 'TASK';
   switch (complexity) {
-    case 'TRIVIAL': return { plan: false, debug: false, validators: [], maxIterations: 1 };
-    case 'SIMPLE': return { plan: false, debug: false, validators: ['generic'], maxIterations: 3 };
-    case 'STANDARD': return { plan: true, debug: false, validators: ['requirements', 'code'], maxIterations: 5 };
-    case 'CRITICAL': return { plan: true, debug: false, validators: ['requirements', 'code', 'security', 'tester'], maxIterations: 5 };
-    default: return { plan: true, debug: false, validators: ['requirements', 'code'], maxIterations: 5 };
+    case 'TRIVIAL': return { plan: false, debug: false, formal: false, validators: [], maxIterations: 1 };
+    case 'SIMPLE': return { plan: false, debug: false, formal: false, validators: ['generic'], maxIterations: 3 };
+    case 'STANDARD': return { plan: true, debug: false, formal, validators: ['requirements', 'code'], maxIterations: 5 };
+    case 'CRITICAL': return { plan: true, debug: false, formal, validators: ['requirements', 'code', 'security', 'tester'], maxIterations: 5 };
+    default: return { plan: true, debug: false, formal, validators: ['requirements', 'code'], maxIterations: 5 };
   }
 }
 
@@ -167,15 +192,45 @@ TASK:
 ${TASK}`;
 }
 
-/** @param {boolean} debug */
-function planPrompt(debug) {
+/** @param {Array<{id: string, criterion: string, verification: string, priority: string}>} criteria */
+function formatCriteria(criteria) {
+  return (criteria || [])
+    .map((c) => `- [${c.priority}] ${c.id}: ${c.criterion} (verify: ${c.verification})`)
+    .join('\n');
+}
+
+function specPrompt() {
+  const specPath = SPEC_PATH
+    || 'docs/moonshot/specs/<YYYY-MM-DD>-<short-kebab-slug>-spec.md — derive the date with `date +%F` and the slug from the task';
+  return `${RULES}
+
+You are the SPEC WRITER. Explore the codebase enough to understand the task in context, then produce a spec:
+- problem: what is wrong or missing, in this codebase's terms.
+- goals / nonGoals: bullet lists; nonGoals fence the scope.
+- decisions: the chosen approach and why, including rejected alternatives.
+- acceptanceCriteria: testable checks, each with a verification method and a MUST/SHOULD/NICE priority. The MUSTs define "done".
+
+Write the same content as a Markdown document to ${specPath} inside the workdir (create directories as needed), and report that path as specFileWritten. Do NOT implement anything — spec and file only.
+
+TASK:
+${TASK}`;
+}
+
+/**
+ * @param {boolean} debug
+ * @param {string | null} specText
+ */
+function planPrompt(debug, specText) {
+  const specBlock = specText
+    ? `\nAPPROVED SPEC (plan against it; adopt its acceptance criteria verbatim, same ids, unless one is untestable):\n${specText}\n\nAlso write your plan as a Markdown document to ${PLAN_PATH || "docs/moonshot/plans/<YYYY-MM-DD>-<slug>-plan.md — match the spec file's date and slug"} inside the workdir (create directories as needed), linking back to the spec file.\n`
+    : '';
   return `${RULES}
 
 You are the ${debug ? 'INVESTIGATOR' : 'PLANNER'}. Produce exactly ONE concrete plan — no options, no "we could", no phased deferral. ${debug
     ? 'Identify the root cause(s) and EVERY location in the codebase that shares the same defect (scan for the pattern). The fix plan must cover all of them plus a regression test.'
     : 'Explore only enough to plan; do NOT implement anything.'}
 Output acceptance criteria as testable checks, each with a verification method and a MUST/SHOULD/NICE priority. The MUSTs define "done". Keep the plan under ~2500 characters.
-
+${specBlock}
 TASK:
 ${TASK}`;
 }
@@ -250,9 +305,18 @@ Then report the PR url and number. Set pushed=true only if BOTH the push and PR 
 
 // ---------- orchestration ----------
 phase('Classify');
-const cls = await agent(classifyPrompt(), { label: 'classify', phase: 'Classify', schema: CLASSIFY_SCHEMA });
+/** @type {{complexity: string, taskType: string, reasoning?: string} | null} */
+let cls = null;
+const pre = ARGS?.classification;
+if (pre && COMPLEXITY.includes(pre.complexity) && TASK_TYPES.includes(pre.taskType)) {
+  cls = /** @type {{complexity: string, taskType: string, reasoning?: string}} */ (pre);
+  log(`Pre-classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning || 'from pre-flight'}`);
+} else {
+  cls = await agent(classifyPrompt(), { label: 'classify', phase: 'Classify', schema: CLASSIFY_SCHEMA });
+  if (!cls) throw new Error('classification failed');
+  log(`Classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning}`);
+}
 if (!cls) throw new Error('classification failed');
-log(`Classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning}`);
 
 // INQUIRY: read-only answer, no implement/validate loop.
 if (cls.taskType === 'INQUIRY') {
@@ -269,16 +333,33 @@ const plan = route(cls.complexity, cls.taskType);
 log(`Route: plan=${plan.plan} validators=[${plan.validators}] maxIter=${plan.maxIterations} debug=${plan.debug}`);
 
 let planText = null;
-if (plan.plan) {
+if (PRE_PLAN) {
+  // Interactive formal path: spec and plan were brainstormed with the user pre-flight.
+  planText = PRE_SPEC ? `SPEC:\n${PRE_SPEC}\n\nPLAN:\n${PRE_PLAN}` : PRE_PLAN;
+  log(`Using pre-approved plan${PLAN_PATH ? ` (${PLAN_PATH})` : ''}`);
+} else if (plan.plan) {
   phase('Plan');
-  const p = await agent(planPrompt(plan.debug), {
+  /** @type {string | null} */
+  let specHeader = null;
+  /** @type {string | null} */
+  let specText = null;
+  if (plan.formal && AUTO) {
+    const s = await agent(specPrompt(), { label: 'spec', phase: 'Plan', schema: SPEC_SCHEMA });
+    if (s) {
+      specHeader = `PROBLEM:\n${s.problem}\n\nDESIGN DECISIONS:\n${s.decisions}`;
+      specText = `${specHeader}\n\nAcceptance criteria:\n${formatCriteria(s.acceptanceCriteria)}`;
+      log(`Spec written: ${s.specFileWritten}`);
+    }
+    // ponytail: spec-writer death degrades to today's plain planner, same as planner death.
+  }
+  const p = await agent(planPrompt(plan.debug, specText), {
     label: plan.debug ? 'investigate' : 'plan', phase: 'Plan', schema: PLAN_SCHEMA,
   });
   if (p) {
-    planText = `${p.plan}\n\nAcceptance criteria:\n${(p.acceptanceCriteria || [])
-      .map((/** @type {{id: string, criterion: string, verification: string, priority: string}} */ c) =>
-        `- [${c.priority}] ${c.id}: ${c.criterion} (verify: ${c.verification})`)
-      .join('\n')}`;
+    // Planner adopts the spec's criteria, so they appear once, from p.
+    planText = `${specHeader ? `${specHeader}\n\nPLAN:\n` : ''}${p.plan}\n\nAcceptance criteria:\n${formatCriteria(p.acceptanceCriteria)}`;
+  } else if (specText) {
+    planText = specText; // planner died; the spec alone still guides implementer and validators
   }
 }
 

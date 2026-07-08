@@ -11,14 +11,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Claude Code plugin: `/moonshot <issue|file|text> [--pr] [--base <branch>]` runs an autonomous multi-agent classify → plan → implement → blind-validate → iterate → ship loop. The repo root is a plugin *marketplace* (`.claude-plugin/marketplace.json`) pointing at the plugin in `moonshot/`.
+A Claude Code plugin: `/moonshot <issue|file|text> [--pr] [--base <branch>] [--auto]` runs an autonomous multi-agent classify → plan → implement → blind-validate → iterate → ship loop. The repo root is a plugin *marketplace* (`.claude-plugin/marketplace.json`) pointing at the plugin in `moonshot/`.
 
 ## Architecture
 
 Judgment lives in subagents; control flow is deterministic code. Three artifacts:
 
-1. **Skill** (`moonshot/skills/moonshot/SKILL.md`) — interactive pre-flight in the main session: resolves the task reference (GitHub via `gh`; Linear/Jira via MCP connectors; bare `KEY-123` must resolve or error — never falls through to inline text), refuses tasks without verifiable done-criteria, sets up an isolated worktree for `--pr`, then invokes the Workflow tool on `moonshot.js`.
-2. **Workflow script** (`moonshot/skills/moonshot/moonshot.js`) — the orchestrator. A classifier agent rates Complexity × TaskType; a deterministic `route()` table maps that to run shape (plan?, which validators, max iterations); then implement → parallel blind validators → unanimous-consensus `evaluate()` → feed rejections back to the implementer → optional transport-only git-pusher plus an independent PR-existence check. Validators are blind by construction: fresh subagents that see only the task, plan, and code on disk. All agent outputs are JSON-Schema-constrained.
+1. **Skill** (`moonshot/skills/moonshot/SKILL.md`) — interactive pre-flight in the main session: resolves the task reference (GitHub via `gh`; Linear/Jira via MCP connectors; bare `KEY-123` must resolve or error — never falls through to inline text), refuses tasks without verifiable done-criteria, classifies pre-flight and, for STANDARD/CRITICAL tasks, runs an interactive brainstorm → spec → plan dialogue (skipped by `--auto`) whose approved documents pass into the workflow, sets up an isolated worktree for `--pr`, then invokes the Workflow tool on `moonshot.js`.
+2. **Workflow script** (`moonshot/skills/moonshot/moonshot.js`) — the orchestrator. A classifier agent rates Complexity × TaskType; a deterministic `route()` table maps that to run shape (plan?, which validators, max iterations); Formal routes accept pre-approved `spec`/`plan` args (skipping the planner) or, with `auto`, run a spec-writer agent that writes `docs/moonshot/specs/…` before planning; then implement → parallel blind validators → unanimous-consensus `evaluate()` → feed rejections back to the implementer → optional transport-only git-pusher plus an independent PR-existence check. Validators are blind by construction: fresh subagents that see only the task, plan, and code on disk. All agent outputs are JSON-Schema-constrained.
 3. **Hook** (`moonshot/hooks/block-dangerous-git.py`) — PreToolUse(Bash) guard blocking `reset --hard`, force-push, `clean -f`, destructive checkout, `branch -D`, `stash`. Inert unless `MOONSHOT_GUARD=1`; fails open on bad input.
 
 ## Critical constraint: the duplicated logic is deliberate

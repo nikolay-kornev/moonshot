@@ -1,6 +1,6 @@
 ---
 name: moonshot
-description: Autonomously implement a task with a multi-agent plan→implement→validate→iterate→ship loop. Use when the user says "/moonshot", "run moonshot", or asks to autonomously implement/fix an issue with independent validation. Accepts a GitHub, Linear, or Jira issue reference (number, key, or URL), a file path, or inline text; supports --pr to open a pull request.
+description: Autonomously implement a task with a multi-agent plan→implement→validate→iterate→ship loop. Use when the user says "/moonshot", "run moonshot", or asks to autonomously implement/fix an issue with independent validation. Accepts a GitHub, Linear, or Jira issue reference (number, key, or URL), a file path, or inline text; supports --pr to open a pull request and --auto to skip the interactive spec/plan gates.
 ---
 
 # moonshot
@@ -19,7 +19,7 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
 
 ## Steps
 
-1. **Parse the argument.** From the user's input extract the task reference and flags (`--pr`, `--base <branch>`).
+1. **Parse the argument.** From the user's input extract the task reference and flags (`--pr`, `--base <branch>`, `--auto`).
 
 2. **Resolve the task text.** Match the reference against these forms, first match wins; for every tracker build `task` as `"<title>\n\n<description>"`:
    - GitHub issue URL, `#N`, or pure integer (e.g. `123`) → run `gh issue view <N> --json title,body`.
@@ -31,7 +31,27 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
 
    If any lookup fails (not found, no permission, connector absent), tell the user and stop. (The workflow's subagents never ask questions; this pre-flight step in the main session may ask the one disambiguation question above.)
 
-3. **Decide workdir + PR mode:**
+3. **Classify.** Spawn ONE read-only subagent via the Agent tool (subagent_type `general-purpose`) with this prompt, substituting the resolved task text:
+
+   > You are a CLASSIFIER only: read-only — do NOT modify, create, or implement anything. Bias AWAY from higher complexity — most real tasks are SIMPLE or STANDARD. Reserve CRITICAL for auth, payments, security, data integrity, or irreversible operations.
+   > COMPLEXITY: TRIVIAL (one file, mechanical) | SIMPLE (one concern, few files) | STANDARD (multi-file feature or refactor) | CRITICAL (security / payments / data-integrity / irreversible).
+   > TASKTYPE: INQUIRY (read-only question) | TASK (build or change something) | DEBUG (fix broken behavior).
+   > Reply with EXACTLY one JSON object and nothing else: {"complexity": "...", "taskType": "...", "reasoning": "..."}
+   >
+   > TASK: <resolved task text>
+
+   Parse the reply as JSON and validate `complexity` ∈ {TRIVIAL, SIMPLE, STANDARD, CRITICAL} and `taskType` ∈ {INQUIRY, TASK, DEBUG}. If the agent fails or the reply does not validate, set `classification = null`, skip steps 4–5 and the document writing in step 7, and continue — the workflow classifies itself (today's behavior; never a hard stop).
+
+4. **Decide formality.** `formal` = (`taskType` is `TASK`) and (`complexity` is `STANDARD` or `CRITICAL`). Non-formal tasks skip step 5 and the document writing in step 7.
+
+5. **Brainstorm and draft (formal without `--auto`; with `--auto` skip this step entirely).**
+   - Ask clarifying questions ONE at a time — purpose, constraints, success criteria; prefer multiple choice. Stop when you can state the design (2–6 questions is typical).
+   - If there is a genuine fork in the road, propose 2–3 approaches with trade-offs and a recommendation.
+   - Draft the **spec** in the conversation: Problem, Goals, Non-goals, Design decisions (chosen approach and why, including rejected alternatives), Acceptance criteria — each line `- [MUST|SHOULD|NICE] AC-n: <criterion> (verify: <how>)`; the MUSTs define "done". Ask the user to approve; revise until approved.
+   - Draft the **plan**: ordered implementation steps, files affected per step, a verification check per step. Ask the user to approve; revise until approved.
+   - If the user abandons, stop. Nothing has been created — no worktree, no files, no workflow run.
+
+6. **Decide workdir + PR mode:**
    - Default (no `--pr`): `workdir` = the absolute path of the current repo root (`git rev-parse --show-toplevel`), `pr` = false. Agents edit files in place; the user reviews.
    - `--pr`: create an isolated worktree so agents can commit safely:
      - `base` = the `--base` value or `main`.
@@ -39,17 +59,24 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
      - `git worktree add ../moonshot-<slug> -b moonshot/<slug> <base>`
      - `workdir` = the absolute path of that new worktree; `pr` = true.
 
-4. **Run the workflow.** The workflow script `moonshot.js` lives in this skill's base
-   directory (Claude Code announces "Base directory for this skill: <path>" when the skill
-   loads). Call the Workflow tool with its absolute path:
-   `Workflow({ scriptPath: "<skill-base-dir>/moonshot.js", args: { task, workdir, pr, base } })`
-   This is an explicit, user-requested multi-agent orchestration — the correct use of Workflow.
+7. **Write the documents (formal only).** Compute `<date>` with `date +%F` and a short kebab-case `<slug>` from the task. Paths, relative to `workdir`:
+   - spec: `docs/moonshot/specs/<date>-<slug>-spec.md`
+   - plan: `docs/moonshot/plans/<date>-<slug>-plan.md`
 
-5. **Report the result** returned by the workflow, in this order:
-   - Classification (complexity / taskType) and the route taken.
+   If a path already exists, append `-2`, `-3`, … to the slug. Then:
+   - Interactive: write the approved spec and plan to those paths (create directories as needed). Do not commit — in `--pr` mode the workflow's pusher commits them with the work; otherwise the user commits them with their review.
+   - `--auto`: do NOT write files; just compute and pass the paths — the workflow's spec-writer and planner agents write them.
+
+8. **Run the workflow.** Call the Workflow tool on `moonshot.js` in this skill's base directory:
+   `Workflow({ scriptPath: "<skill-base-dir>/moonshot.js", args: { task, workdir, pr, base, classification, spec, plan, specPath, planPath, auto } })`
+   Omit fields you do not have: `classification` when step 3 failed; `spec` and `plan` (the approved document contents, as strings) only on the interactive formal path; `specPath`/`planPath` only when formal; `auto: true` only when `--auto` was given.
+
+9. **Report the result** returned by the workflow, in this order:
+   - Classification (complexity / taskType), whether it came from pre-flight or in-workflow, and the route taken.
    - Whether it was **approved**, and in how many iterations.
    - If not approved: the outstanding rejections (validator, severity, message) so the user can decide next steps.
    - The implementation summary.
+   - For formal runs: the spec and plan document paths (in `--auto` mode, check the files exist before citing them — a dead planner agent may have left no plan doc).
    - If `--pr`: the PR url/number and the verification result. If the push was blocked, surface `blockedReason`.
    - In `--pr` mode, remind the user the work is in the worktree `../moonshot-<slug>` on branch `moonshot/<slug>`.
 
@@ -58,3 +85,4 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
 - Blind validation is automatic: each validator is a fresh subagent that never sees the implementer's reasoning — only the task, the plan/criteria, and the actual code on disk.
 - To resume after an interruption, re-run with the same `scriptPath` and pass the prior run's id via the Workflow `resumeFromRunId` option (session-scoped).
 - The git-safety hook (`MOONSHOT_GUARD`) blocks catastrophic git commands during the run.
+- Formal runs (STANDARD/CRITICAL TASK) follow a formal brainstorm → spec → plan → implement process: interactive gates by default, agent-written documents with `--auto`. The spec's acceptance criteria are what the blind validators enforce.

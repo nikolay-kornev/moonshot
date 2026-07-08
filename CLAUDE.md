@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Claude Code plugin: `/moonshot <issue|file|text> [--pr] [--base <branch>]` runs an autonomous multi-agent classify → plan → implement → blind-validate → iterate → ship loop. The repo root is a plugin *marketplace* (`.claude-plugin/marketplace.json`) pointing at the plugin in `moonshot/`.
+A Claude Code plugin: `/moonshot <issue|file|text> [--pr] [--base <branch>] [--auto]` runs an autonomous multi-agent classify → plan → implement → blind-validate → iterate → ship loop. The repo root is a plugin *marketplace* (`.claude-plugin/marketplace.json`) pointing at the plugin in `moonshot/`.
 
 ## Architecture
 

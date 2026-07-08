@@ -76,7 +76,7 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
    - Whether it was **approved**, and in how many iterations.
    - If not approved: the outstanding rejections (validator, severity, message) so the user can decide next steps.
    - The implementation summary.
-   - For formal runs: the spec and plan document paths.
+   - For formal runs: the spec and plan document paths (in `--auto` mode, check the files exist before citing them — a dead planner agent may have left no plan doc).
    - If `--pr`: the PR url/number and the verification result. If the push was blocked, surface `blockedReason`.
    - In `--pr` mode, remind the user the work is in the worktree `../moonshot-<slug>` on branch `moonshot/<slug>`.
 

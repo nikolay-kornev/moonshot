@@ -150,9 +150,9 @@ collision the skill appends `-2`, `-3`, …
   case a missed brainstorm, never a hard failure.
 - Spec/plan rejected at a gate → revise and re-present; abandonment leaves no
   worktree, files, or workflow run.
-- `--auto` spec-writer fails mid-workflow → same posture as today's planner
-  failure: `planText` stays null, implementer proceeds plan-less (safe default
-  over crash).
+- `--auto` spec-writer fails mid-workflow → degrade to the plain planner (no
+  spec doc, plan still produced); if the planner also fails with a spec present,
+  `planText` falls back to the spec text alone (safe default over crash).
 
 ## Testing
 

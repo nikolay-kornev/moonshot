@@ -5,7 +5,7 @@ import { route } from '../lib/routing.ts';
 
 test('TRIVIAL TASK → 1 worker, no validators, 1 iteration', () => {
   assert.deepEqual(route('TRIVIAL', 'TASK'), {
-    plan: false, debug: false, validators: [], maxIterations: 1,
+    plan: false, debug: false, formal: false, validators: [], maxIterations: 1,
   });
 });
 
@@ -46,4 +46,15 @@ test('unknown complexity throws', () => {
 
 test('unknown taskType throws', () => {
   assert.throws(() => route('SIMPLE', 'NOPE' as any));
+});
+
+test('formal is true exactly for STANDARD/CRITICAL TASK', () => {
+  assert.equal(route('STANDARD', 'TASK').formal, true);
+  assert.equal(route('CRITICAL', 'TASK').formal, true);
+  assert.equal(route('TRIVIAL', 'TASK').formal, false);
+  assert.equal(route('SIMPLE', 'TASK').formal, false);
+  assert.equal(route('STANDARD', 'DEBUG').formal, false);
+  assert.equal(route('CRITICAL', 'DEBUG').formal, false);
+  assert.equal(route('TRIVIAL', 'DEBUG').formal, false);
+  assert.equal(route('STANDARD', 'INQUIRY').formal, false);
 });

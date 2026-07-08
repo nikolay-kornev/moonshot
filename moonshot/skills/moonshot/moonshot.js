@@ -119,14 +119,15 @@ const PUSH_SCHEMA = {
  */
 function route(complexity, taskType) {
   if (taskType === 'DEBUG' && complexity !== 'TRIVIAL') {
-    return { plan: true, debug: true, validators: ['tester'], maxIterations: 10 };
+    return { plan: true, debug: true, formal: false, validators: ['tester'], maxIterations: 10 };
   }
+  const formal = taskType === 'TASK';
   switch (complexity) {
-    case 'TRIVIAL': return { plan: false, debug: false, validators: [], maxIterations: 1 };
-    case 'SIMPLE': return { plan: false, debug: false, validators: ['generic'], maxIterations: 3 };
-    case 'STANDARD': return { plan: true, debug: false, validators: ['requirements', 'code'], maxIterations: 5 };
-    case 'CRITICAL': return { plan: true, debug: false, validators: ['requirements', 'code', 'security', 'tester'], maxIterations: 5 };
-    default: return { plan: true, debug: false, validators: ['requirements', 'code'], maxIterations: 5 };
+    case 'TRIVIAL': return { plan: false, debug: false, formal: false, validators: [], maxIterations: 1 };
+    case 'SIMPLE': return { plan: false, debug: false, formal: false, validators: ['generic'], maxIterations: 3 };
+    case 'STANDARD': return { plan: true, debug: false, formal, validators: ['requirements', 'code'], maxIterations: 5 };
+    case 'CRITICAL': return { plan: true, debug: false, formal, validators: ['requirements', 'code', 'security', 'tester'], maxIterations: 5 };
+    default: return { plan: true, debug: false, formal, validators: ['requirements', 'code'], maxIterations: 5 };
   }
 }
 

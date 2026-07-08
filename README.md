@@ -45,8 +45,8 @@ Examples:
 - `/moonshot 123 --pr --base develop` — same as above, but ship a pull request based on `develop`.
 - `/moonshot 123 --auto --pr` — no interactive gates: agents write the spec and plan docs, implement, and ship a PR.
 
-STANDARD/CRITICAL tasks follow a formal brainstorm → spec → plan → implement process
-(inspired by [superpowers](https://github.com/obra/superpowers)): by default moonshot
+STANDARD/CRITICAL tasks follow a formal brainstorm → spec → plan → implement
+process: by default moonshot
 brainstorms with you, then writes `docs/moonshot/specs/<date>-<slug>-spec.md` and
 `docs/moonshot/plans/<date>-<slug>-plan.md` into the target repo for your approval
 before implementing. `--auto` skips the dialogue — agents write both documents and
@@ -76,6 +76,8 @@ A PreToolUse hook blocks catastrophic git commands before they run: `reset --har
 ## Credits
 
 moonshot is an independent reimplementation of [zeroshot](https://github.com/the-open-engine/zeroshot) by The Open Engine Company (MIT License, Copyright (c) 2026 The Open Engine Company) — its classify→plan→implement→validate→iterate→ship design and prompt discipline are the direct inspiration for this project. The git-safety hook (`moonshot/hooks/block-dangerous-git.py`) is ported from zeroshot's `cluster-hooks/block-dangerous-git.py`. moonshot ports these ideas to Claude Code primitives; it is not affiliated with or endorsed by The Open Engine Company.
+
+The formal brainstorm → spec → plan → implement process is inspired by [superpowers](https://github.com/obra/superpowers) by Jesse Vincent (obra).
 
 ## Layout
 

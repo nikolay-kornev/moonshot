@@ -85,4 +85,4 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
 - Blind validation is automatic: each validator is a fresh subagent that never sees the implementer's reasoning — only the task, the plan/criteria, and the actual code on disk.
 - To resume after an interruption, re-run with the same `scriptPath` and pass the prior run's id via the Workflow `resumeFromRunId` option (session-scoped).
 - The git-safety hook (`MOONSHOT_GUARD`) blocks catastrophic git commands during the run.
-- Formal runs (STANDARD/CRITICAL TASK) follow a superpowers-style brainstorm → spec → plan → implement process: interactive gates by default, agent-written documents with `--auto`. The spec's acceptance criteria are what the blind validators enforce.
+- Formal runs (STANDARD/CRITICAL TASK) follow a formal brainstorm → spec → plan → implement process: interactive gates by default, agent-written documents with `--auto`. The spec's acceptance criteria are what the blind validators enforce.

@@ -21,5 +21,13 @@ Fixes that came out of smoke testing:
 
 - Formal interactive path: not yet run — needs a STANDARD task plus a user dialogue
   (brainstorm → approve spec → approve plan → workflow skips classify+plan agents).
-- Formal `--auto` path: not yet run — expect spec-writer + planner agents to write
-  `docs/moonshot/specs/` and `docs/moonshot/plans/` files in the workdir.
+
+# Smoke results (2026-07-08, formal `--auto` path, live e2e via Workflow scriptPath)
+
+- Formal `--auto` path: pre-classified STANDARD/TASK (classify agent skipped — 5 agents
+  total: spec, plan, implement, 2 validators), route `formal=true validators=[requirements,code]
+  maxIter=5`, approved in 1 iteration. Task: 3-file Node todo CLI in a scratch repo.
+  Spec (7.3K, 6 MUSTs) and plan (3.4K, links back to spec) written at the pinned
+  `docs/moonshot/specs|plans/` paths by the agents. Verified independently by controller:
+  `node --test test.js` exit 0, add/list/done work manually, invalid command → usage on
+  stderr + exit 1. Pass. Planner-death degradation edge not exercised (both agents lived).

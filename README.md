@@ -31,7 +31,7 @@ Note: cloning and trusting the repo is NOT enough by itself — the skill lives 
 ## Usage
 
 ```
-/moonshot <issue-reference | file-path | inline text> [--pr] [--base <branch>]
+/moonshot <issue-reference | file-path | inline text> [--pr] [--base <branch>] [--auto]
 ```
 
 Issue references: a GitHub issue number or URL (`123`, `#123`), a Linear or Jira issue key or URL (`KEY-123`, `linear.app/.../issue/KEY-123`, `<site>.atlassian.net/browse/KEY-123`). GitHub resolves via `gh`; Linear and Jira via their Claude Code connectors (MCP) — connect the one you use. A bare `KEY-123` uses whichever of the two is connected, and asks once if both are. All forms resolve to `"<title>\n\n<description>"` as the task.
@@ -43,6 +43,15 @@ Examples:
 - `/moonshot feature.md` — read `feature.md` from disk as the task.
 - `/moonshot "add input validation to the signup form"` — use the text itself as the task.
 - `/moonshot 123 --pr --base develop` — same as above, but ship a pull request based on `develop`.
+- `/moonshot 123 --auto --pr` — no interactive gates: agents write the spec and plan docs, implement, and ship a PR.
+
+STANDARD/CRITICAL tasks follow a formal brainstorm → spec → plan → implement process
+(inspired by [superpowers](https://github.com/obra/superpowers)): by default moonshot
+brainstorms with you, then writes `docs/moonshot/specs/<date>-<slug>-spec.md` and
+`docs/moonshot/plans/<date>-<slug>-plan.md` into the target repo for your approval
+before implementing. `--auto` skips the dialogue — agents write both documents and
+proceed. The spec's acceptance criteria are what the blind validators enforce.
+Trivial/simple/debug tasks keep the fast path with no document overhead.
 
 `--pr` requires `gh` and `git`, and runs in an isolated worktree at `../moonshot-<slug>` (branch `moonshot/<slug>`) so the agents can commit safely without touching your working tree.
 

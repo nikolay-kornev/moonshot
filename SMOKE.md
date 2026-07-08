@@ -16,3 +16,10 @@ Fixes that came out of smoke testing:
 1. `args` may arrive as a JSON-encoded string → workflow now parses string args.
 2. Classifier agent created the target file itself during the TRIVIAL run → classify prompt now
    declares the agent read-only.
+
+# Pending (2026-07-08 formal spec→plan workflow)
+
+- Formal interactive path: not yet run — needs a STANDARD task plus a user dialogue
+  (brainstorm → approve spec → approve plan → workflow skips classify+plan agents).
+- Formal `--auto` path: not yet run — expect spec-writer + planner agents to write
+  `docs/moonshot/specs/` and `docs/moonshot/plans/` files in the workdir.

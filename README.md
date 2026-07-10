@@ -47,15 +47,77 @@ Examples:
 
 STANDARD/CRITICAL tasks follow a formal brainstorm → spec → plan → implement
 process: by default moonshot
-brainstorms with you, then writes `docs/moonshot/specs/<date>-<slug>-spec.md` and
-`docs/moonshot/plans/<date>-<slug>-plan.md` into the target repo for your approval
+brainstorms with you, then writes `.claude/moonshot/specs/<date>-<slug>-spec.md` and
+`.claude/moonshot/plans/<date>-<slug>-plan.md` into the target repo for your approval
 before implementing. `--auto` skips the dialogue — agents write both documents and
 proceed. The spec's acceptance criteria are what the blind validators enforce.
+The docs are ephemeral and never committed — see [Specs and plans](#specs-and-plans).
 Trivial/simple/debug tasks keep the fast path with no document overhead.
 
 `--pr` requires `gh` and `git`, and runs in an isolated worktree at `../moonshot-<slug>` (branch `moonshot/<slug>`) so the agents can commit safely without touching your working tree.
 
 > **Trust warning:** the resolved issue text is interpolated verbatim into the prompts of autonomous, non-interactive agents with shell access. Only run against issues from sources you trust, and prefer `--pr` (isolated worktree) for anything third-party.
+
+## Specs and plans
+
+Formal runs (STANDARD/CRITICAL tasks) produce two documents in the target repo
+(the worktree, in `--pr` mode):
+
+- spec: `.claude/moonshot/specs/<date>-<slug>-spec.md`
+- plan: `.claude/moonshot/plans/<date>-<slug>-plan.md`
+
+Interactive runs draft them with you in conversation and write them only after you
+approve; `--auto` runs have the spec-writer and planner agents write them directly.
+Either way, moonshot first drops a `.gitignore` containing `*` into `.claude/moonshot/`,
+so the directory is self-ignoring in any repo: the docs are ephemeral working copies
+that can never be committed — not even by the `--pr` pusher's `git add -A` — and in
+`--pr` mode they disappear when the worktree is removed. Validators never read these
+files (the approved content is passed to them directly), so the files exist for your
+review and your records only.
+
+### Keeping a durable record in your tracker
+
+Since the repo never keeps the docs, store the approved spec where you track work —
+a Linear document, a Jira or GitHub issue comment. The zero-setup way is to ask in
+the session: "post the approved spec to the issue." To make it automatic, add a
+`PostToolUse` hook in the target project that fires whenever a spec or plan file is
+written and posts it to your tracker:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-spec.sh" }]
+      }
+    ]
+  }
+}
+```
+
+```sh
+#!/bin/bash
+# post-spec.sh — mirror moonshot specs/plans to the issue tracker
+input=$(cat)
+file=$(jq -r '.tool_input.file_path // empty' <<<"$input")
+case "$file" in
+  */.claude/moonshot/specs/*.md|*/.claude/moonshot/plans/*.md) ;;
+  *) exit 0 ;;
+esac
+issue=$(grep -oEm1 '#[0-9]+|[A-Z][A-Z0-9]+-[0-9]+' "$file")   # first issue ref in the doc
+[ -z "$issue" ] && exit 0
+gh issue comment "${issue#\#}" --body-file "$file"             # GitHub
+# Jira:   curl -X POST "$JIRA_URL/rest/api/3/issue/$issue/comment" ... --data-binary @"$file"
+# Linear: POST the content to the GraphQL API as a comment or Document
+```
+
+Hooks run as plain shell (no MCP access), so use `gh` for GitHub and the REST/GraphQL
+APIs for Jira/Linear. For the issue reference to be greppable, make sure the spec
+mentions the issue key — when launching from an issue it usually does; if not, ask for
+it during the brainstorm, or hardcode your board in the hook. The inverse pattern also
+works: a `PreToolUse` deny hook on your old spec directory keeps anyone from writing
+specs outside the tracker convention.
 
 ## Git-safety guard
 

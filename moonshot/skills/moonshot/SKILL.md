@@ -60,12 +60,12 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
      - `workdir` = the absolute path of that new worktree; `pr` = true.
 
 7. **Write the documents (formal only).** Compute `<date>` with `date +%F` and a short kebab-case `<slug>` from the task. Paths, relative to `workdir`:
-   - spec: `docs/moonshot/specs/<date>-<slug>-spec.md`
-   - plan: `docs/moonshot/plans/<date>-<slug>-plan.md`
+   - spec: `.claude/moonshot/specs/<date>-<slug>-spec.md`
+   - plan: `.claude/moonshot/plans/<date>-<slug>-plan.md`
 
-   If a path already exists, append `-2`, `-3`, … to the slug. Then:
-   - Interactive: write the approved spec and plan to those paths (create directories as needed). Do not commit — in `--pr` mode the workflow's pusher commits them with the work; otherwise the user commits them with their review.
-   - `--auto`: do NOT write files; just compute and pass the paths — the workflow's spec-writer and planner agents write them.
+   If a path already exists, append `-2`, `-3`, … to the slug. In both modes, first ensure `.claude/moonshot/.gitignore` exists inside `workdir` containing `*` — the directory is self-ignoring, so the docs can never be committed (not even by the `--pr` pusher's `git add -A`). Then:
+   - Interactive: write the approved spec and plan to those paths (create directories as needed). They are ephemeral working artifacts, never committed — the durable record of the approved spec is wherever the user keeps it (e.g. their issue tracker).
+   - `--auto`: do NOT write the spec/plan files; just compute and pass the paths — the workflow's spec-writer and planner agents write them.
 
 8. **Run the workflow.** Call the Workflow tool on `moonshot.js` in this skill's base directory:
    `Workflow({ scriptPath: "<skill-base-dir>/moonshot.js", args: { task, workdir, pr, base, classification, spec, plan, specPath, planPath, auto } })`
@@ -76,7 +76,7 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
    - Whether it was **approved**, and in how many iterations.
    - If not approved: the outstanding rejections (validator, severity, message) so the user can decide next steps.
    - The implementation summary.
-   - For formal runs: the spec and plan document paths (in `--auto` mode, check the files exist before citing them — a dead planner agent may have left no plan doc).
+   - For formal runs: the spec and plan document paths (in `--auto` mode, check the files exist before citing them — a dead planner agent may have left no plan doc). In `--pr` mode note they live in the worktree and disappear when it is removed.
    - If `--pr`: the PR url/number and the verification result. If the push was blocked, surface `blockedReason`.
    - In `--pr` mode, remind the user the work is in the worktree `../moonshot-<slug>` on branch `moonshot/<slug>`.
 

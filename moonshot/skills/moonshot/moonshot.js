@@ -201,7 +201,7 @@ function formatCriteria(criteria) {
 
 function specPrompt() {
   const specPath = SPEC_PATH
-    || 'docs/moonshot/specs/<YYYY-MM-DD>-<short-kebab-slug>-spec.md — derive the date with `date +%F` and the slug from the task';
+    || '.claude/moonshot/specs/<YYYY-MM-DD>-<short-kebab-slug>-spec.md — derive the date with `date +%F` and the slug from the task, and also ensure .claude/moonshot/.gitignore exists containing `*`';
   return `${RULES}
 
 You are the SPEC WRITER. Explore the codebase enough to understand the task in context, then produce a spec:
@@ -222,7 +222,7 @@ ${TASK}`;
  */
 function planPrompt(debug, specText) {
   const specBlock = specText
-    ? `\nAPPROVED SPEC (plan against it; adopt its acceptance criteria verbatim, same ids, unless one is untestable):\n${specText}\n\nAlso write your plan as a Markdown document to ${PLAN_PATH || "docs/moonshot/plans/<YYYY-MM-DD>-<slug>-plan.md — match the spec file's date and slug"} inside the workdir (create directories as needed), linking back to the spec file.\n`
+    ? `\nAPPROVED SPEC (plan against it; adopt its acceptance criteria verbatim, same ids, unless one is untestable):\n${specText}\n\nAlso write your plan as a Markdown document to ${PLAN_PATH || ".claude/moonshot/plans/<YYYY-MM-DD>-<slug>-plan.md — match the spec file's date and slug"} inside the workdir (create directories as needed), linking back to the spec file.\n`
     : '';
   return `${RULES}
 

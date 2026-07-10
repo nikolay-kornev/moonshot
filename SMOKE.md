@@ -21,7 +21,7 @@ Fixes that came out of smoke testing:
 
 - Formal interactive path: pre-flight classifier subagent → STANDARD/TASK; brainstorm
   (2 questions: write mode, duplicate-slug policy) → user-approved spec (7 ACs) + plan
-  written to `docs/moonshot/specs|plans/` by the skill; workflow skipped BOTH classify
+  written to the pinned spec/plan paths by the skill; workflow skipped BOTH classify
   and plan agents (3 agents total: implement, 2 validators), approved in 1 iteration.
   Task: Markdown TOC CLI in a scratch repo. Verified independently by controller:
   `node --test test.js` exit 0 (7 tests), duplicate headings → `#setup`/`#setup-1`,
@@ -33,6 +33,12 @@ Fixes that came out of smoke testing:
   total: spec, plan, implement, 2 validators), route `formal=true validators=[requirements,code]
   maxIter=5`, approved in 1 iteration. Task: 3-file Node todo CLI in a scratch repo.
   Spec (7.3K, 6 MUSTs) and plan (3.4K, links back to spec) written at the pinned
-  `docs/moonshot/specs|plans/` paths by the agents. Verified independently by controller:
+  spec/plan paths by the agents. Verified independently by controller:
   `node --test test.js` exit 0, add/list/done work manually, invalid command → usage on
   stderr + exit 1. Pass. Planner-death degradation edge not exercised (both agents lived).
+
+# Note (2026-07-09, v0.3.0)
+
+- Spec/plan docs relocated from `docs/moonshot/` (the location used in the runs above) to
+  the self-gitignoring `.claude/moonshot/specs|plans/` — docs are now ephemeral, never
+  committed. Formal paths not yet re-smoked at the new location.

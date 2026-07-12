@@ -45,8 +45,8 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
 4. **Decide formality.** `formal` = (`taskType` is `TASK`) and (`complexity` is `STANDARD` or `CRITICAL`). Non-formal tasks skip step 5 and the document writing in step 7.
 
 5. **Brainstorm and draft (formal without `--auto`; with `--auto` skip this step entirely).**
-   - Ask clarifying questions ONE at a time — purpose, constraints, success criteria; prefer multiple choice. Stop when you can state the design (2–6 questions is typical).
-   - If there is a genuine fork in the road, propose 2–3 approaches with trade-offs and a recommendation.
+   - Ask clarifying questions ONE at a time — purpose, constraints, success criteria; prefer multiple choice, and every multiple-choice question must also offer a free-form option ("Other — type your own answer"; when asking via AskUserQuestion this is built in, when asking in plain text list it explicitly). When you have a preferred answer, put it first and mark it "(Recommended)" with a one-line why. Stop when you can state the design (2–6 questions is typical).
+   - If there is a genuine fork in the road, propose 2–3 approaches with trade-offs, leading with your recommendation and why.
    - Draft the **spec** in the conversation: Problem, Goals, Non-goals, Design decisions (chosen approach and why, including rejected alternatives), Acceptance criteria — each line `- [MUST|SHOULD|NICE] AC-n: <criterion> (verify: <how>)`; the MUSTs define "done". Ask the user to approve; revise until approved.
    - Draft the **plan**: ordered implementation steps, files affected per step, a verification check per step. Ask the user to approve; revise until approved.
    - If the user abandons, stop. Nothing has been created — no worktree, no files, no workflow run.

@@ -58,6 +58,29 @@ Trivial/simple/debug tasks keep the fast path with no document overhead.
 
 > **Trust warning:** the resolved issue text is interpolated verbatim into the prompts of autonomous, non-interactive agents with shell access. Only run against issues from sources you trust, and prefer `--pr` (isolated worktree) for anything third-party.
 
+## Configuration
+
+Optional `.claude/moonshot/config.json` in your repo picks the model and reasoning effort per workflow stage. No file (or a missing key) = that stage inherits the session model/effort.
+
+```json
+{
+  "models": {
+    "classify": "haiku",
+    "plan": "opus",
+    "implement": "sonnet",
+    "validate": "sonnet"
+  },
+  "effort": {
+    "plan": "high",
+    "validate": "high"
+  }
+}
+```
+
+Stages: `classify`, `spec` (the `--auto` spec-writer), `plan` (planner/investigator), `implement` (implementer/fixer), `validate` (all validator roles), `ship` (git-pusher + PR verify). Models: `haiku` | `sonnet` | `opus` | `fable`. Effort: `low` | `medium` | `high` | `xhigh` | `max`. Invalid entries are dropped with a warning; a malformed file is ignored with a warning.
+
+`.claude/moonshot/` is self-gitignoring — to commit the config for your team, add `!config.json` to `.claude/moonshot/.gitignore`.
+
 ## Specs and plans
 
 Formal runs (STANDARD/CRITICAL tasks) produce two documents in the target repo

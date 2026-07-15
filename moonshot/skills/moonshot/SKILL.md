@@ -67,9 +67,11 @@ Drive an autonomous multi-agent workflow: classify the task, optionally plan it,
    - Interactive: write the approved spec and plan to those paths (create directories as needed). They are ephemeral working artifacts, never committed — the durable record of the approved spec is wherever the user keeps it (e.g. their issue tracker).
    - `--auto`: do NOT write the spec/plan files; just compute and pass the paths — the workflow's spec-writer and planner agents write them.
 
-8. **Run the workflow.** Call the Workflow tool on `moonshot.js` in this skill's base directory:
-   `Workflow({ scriptPath: "<skill-base-dir>/moonshot.js", args: { task, workdir, pr, base, classification, spec, plan, specPath, planPath, auto } })`
-   Omit fields you do not have: `classification` when step 3 failed; `spec` and `plan` (the approved document contents, as strings) only on the interactive formal path; `specPath`/`planPath` only when formal; `auto: true` only when `--auto` was given.
+8. **Read config + run the workflow.** If `.claude/moonshot/config.json` exists at the current repo root (`git rev-parse --show-toplevel` — the original repo, not a worktree), read it and take its `models` and `effort` objects. Drop, and tell the user about, any entry that fails validation: stage key not in {`classify`, `spec`, `plan`, `implement`, `validate`, `ship`}, `models` value not in {`haiku`, `sonnet`, `opus`, `fable`}, `effort` value not in {`low`, `medium`, `high`, `xhigh`, `max`}. If the file is unreadable or not valid JSON, warn and proceed without it — never a hard stop.
+
+   Call the Workflow tool on `moonshot.js` in this skill's base directory:
+   `Workflow({ scriptPath: "<skill-base-dir>/moonshot.js", args: { task, workdir, pr, base, classification, spec, plan, specPath, planPath, auto, models, effort } })`
+   Omit fields you do not have: `classification` when step 3 failed; `spec` and `plan` (the approved document contents, as strings) only on the interactive formal path; `specPath`/`planPath` only when formal; `auto: true` only when `--auto` was given; `models`/`effort` only when the config file provided surviving entries.
 
 9. **Report the result** returned by the workflow, in this order:
    - Classification (complexity / taskType), whether it came from pre-flight or in-workflow, and the route taken.

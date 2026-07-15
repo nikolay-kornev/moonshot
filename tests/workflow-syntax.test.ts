@@ -25,3 +25,14 @@ test('orchestration body is top-level — an IIFE would swallow the workflow ret
   assert.ok(!SRC.includes('(async () =>'), 'body must not be wrapped in an IIFE');
   assert.match(SRC, /^return result;$/m, 'must end with a top-level `return result;`');
 });
+
+test('every agent() call site carries a tune() spread (per-stage model/effort config)', () => {
+  const calls = (SRC.match(/\bagent\(/g) || []).length;
+  const tuned = (SRC.match(/\.\.\.tune\(/g) || []).length;
+  assert.ok(calls >= 8, `expected at least 8 agent() call sites, found ${calls}`);
+  assert.strictEqual(tuned, calls, 'every agent() call must spread ...tune(<stage>)');
+  const STAGES = ['classify', 'spec', 'plan', 'implement', 'validate', 'ship'];
+  for (const m of SRC.matchAll(/\.\.\.tune\('(\w+)'\)/g)) {
+    assert.ok(STAGES.includes(m[1]), `unknown tune() stage: ${m[1]}`);
+  }
+});

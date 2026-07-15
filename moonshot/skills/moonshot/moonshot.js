@@ -11,7 +11,7 @@ export const meta = {
   ],
 };
 
-// args: { task, workdir, pr, base, classification?, spec?, plan?, specPath?, planPath?, auto? }
+// args: { task, workdir, pr, base, classification?, spec?, plan?, specPath?, planPath?, auto?, models?, effort? }
 // — some callers deliver args as a JSON-encoded string
 let ARGS = args;
 if (typeof args === 'string') {
@@ -27,6 +27,17 @@ const PRE_PLAN = typeof ARGS?.plan === 'string' && ARGS.plan.trim() ? ARGS.plan 
 const SPEC_PATH = typeof ARGS?.specPath === 'string' && ARGS.specPath ? ARGS.specPath : null;
 const PLAN_PATH = typeof ARGS?.planPath === 'string' && ARGS.planPath ? ARGS.planPath : null;
 if (!TASK) throw new Error('moonshot: args.task is required');
+
+// Per-stage model/effort overrides (see README "Configuration"); non-string values ignored.
+const MODELS = ARGS?.models || {};
+const EFFORT = ARGS?.effort || {};
+/** @param {string} stage
+ * @returns {Partial<Pick<WorkflowAgentOptions, 'model' | 'effort'>>}
+ */
+const tune = (stage) => ({
+  ...(typeof MODELS[stage] === 'string' && { model: MODELS[stage] }),
+  ...(typeof EFFORT[stage] === 'string' && { effort: /** @type {'low' | 'medium' | 'high' | 'xhigh' | 'max'} */(EFFORT[stage]) }),
+});
 
 /** @typedef {{severity: string, message: string, evidence?: string}} ValidatorError */
 /** @typedef {{validator: string, approved: boolean, errors?: ValidatorError[]}} ValidatorResult */
@@ -312,7 +323,7 @@ if (pre && COMPLEXITY.includes(pre.complexity) && TASK_TYPES.includes(pre.taskTy
   cls = /** @type {{complexity: string, taskType: string, reasoning?: string}} */ (pre);
   log(`Pre-classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning || 'from pre-flight'}`);
 } else {
-  cls = await agent(classifyPrompt(), { label: 'classify', phase: 'Classify', schema: CLASSIFY_SCHEMA });
+  cls = await agent(classifyPrompt(), { label: 'classify', phase: 'Classify', schema: CLASSIFY_SCHEMA, ...tune('classify') });
   if (!cls) throw new Error('classification failed');
   log(`Classified: ${cls.complexity} / ${cls.taskType} — ${cls.reasoning}`);
 }
@@ -323,7 +334,7 @@ if (cls.taskType === 'INQUIRY') {
   phase('Implement');
   const answer = await agent(
     `${RULES}\n\nAnswer this read-only question. Investigate the code as needed; do NOT modify files.\n\n${TASK}`,
-    { label: 'inquiry', phase: 'Implement' },
+    { label: 'inquiry', phase: 'Implement', ...tune('implement') },
   );
   // @ts-ignore -- Workflow dialect: top-level return (body runs in an async function scope)
   return { mode: 'inquiry', classification: cls, answer };
@@ -344,7 +355,7 @@ if (PRE_PLAN) {
   /** @type {string | null} */
   let specText = null;
   if (plan.formal && AUTO) {
-    const s = await agent(specPrompt(), { label: 'spec', phase: 'Plan', schema: SPEC_SCHEMA });
+    const s = await agent(specPrompt(), { label: 'spec', phase: 'Plan', schema: SPEC_SCHEMA, ...tune('spec') });
     if (s) {
       specHeader = `PROBLEM:\n${s.problem}\n\nDESIGN DECISIONS:\n${s.decisions}`;
       specText = `${specHeader}\n\nAcceptance criteria:\n${formatCriteria(s.acceptanceCriteria)}`;
@@ -353,7 +364,7 @@ if (PRE_PLAN) {
     // ponytail: spec-writer death degrades to today's plain planner, same as planner death.
   }
   const p = await agent(planPrompt(plan.debug, specText), {
-    label: plan.debug ? 'investigate' : 'plan', phase: 'Plan', schema: PLAN_SCHEMA,
+    label: plan.debug ? 'investigate' : 'plan', phase: 'Plan', schema: PLAN_SCHEMA, ...tune('plan'),
   });
   if (p) {
     // Planner adopts the spec's criteria, so they appear once, from p.
@@ -373,7 +384,7 @@ for (let i = 1; i <= plan.maxIterations; i++) {
   iterationsUsed = i;
   phase('Implement');
   const work = await agent(workPrompt(planText, rejections, plan.debug), {
-    label: `implement#${i}`, phase: 'Implement', schema: WORK_SCHEMA,
+    label: `implement#${i}`, phase: 'Implement', schema: WORK_SCHEMA, ...tune('implement'),
   });
   if (!work) throw new Error(`implementer died on iteration ${i}`);
   lastSummary = work.summary;
@@ -391,7 +402,7 @@ for (let i = 1; i <= plan.maxIterations; i++) {
   phase('Validate');
   const results = await parallel(
     plan.validators.map((role) => () =>
-      agent(validatePrompt(role, planText), { label: `validate:${role}#${i}`, phase: 'Validate', schema: VALIDATE_SCHEMA })
+      agent(validatePrompt(role, planText), { label: `validate:${role}#${i}`, phase: 'Validate', schema: VALIDATE_SCHEMA, ...tune('validate') })
         .then((v) => (v ? { validator: role, ...v } : null)),
     ),
   );
@@ -422,12 +433,12 @@ if (!approved) { log(`NOT approved within ${plan.maxIterations} iterations`); re
 
 if (WANT_PR) {
   phase('Ship');
-  const push = await agent(pushPrompt(), { label: 'git-pusher', phase: 'Ship', schema: PUSH_SCHEMA });
+  const push = await agent(pushPrompt(), { label: 'git-pusher', phase: 'Ship', schema: PUSH_SCHEMA, ...tune('ship') });
   if (push && push.pushed && push.prNumber) {
     // Anti-hallucination: confirm the PR actually exists.
     const prVerification = await agent(
       `${RULES}\n\nRun: gh pr view ${push.prNumber} --json number,url,state\nReport whether the PR exists and its state. Do NOT create anything.`,
-      { label: 'verify-pr', phase: 'Ship' },
+      { label: 'verify-pr', phase: 'Ship', ...tune('ship') },
     );
     result.push = push;
     result.prVerification = prVerification;
